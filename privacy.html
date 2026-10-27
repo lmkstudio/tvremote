@@ -15,10 +15,10 @@
     <header class="site"><a href="./">TV Remote <span class="pro">Pro</span></a></header>
 
     <h1>Privacy Policy</h1>
-    <p class="updated">Last updated: October 25, 2026</p>
+    <p class="updated">Last updated: October 27, 2026</p>
 
     <p>TV Remote does not ask you to create an account, and it never sends what you say or type to us. This policy explains what the TV Remote iPhone app (the "App") collects, why, and the choices you have. The App is made by LMK Studio ("we", "us").</p>
-    <p>The App lets your iPhone control an Android TV or Google TV on the same Wi‑Fi network. Some features use services from Google (Firebase and AdMob), RevenueCat and Apple, described below.</p>
+    <p>The App lets your iPhone control an Android TV or Google TV on the same Wi‑Fi network. Some features use services from Google (Firebase and AdMob), the ad networks AdMob works with (Meta Audience Network and Liftoff), RevenueCat and Apple, described below.</p>
 
     <h2>Information we collect</h2>
     <p>The App collects usage, diagnostic and purchase data so we can keep it working and improve it. None of it includes your name, email address, voice, or anything you type.</p>
@@ -29,9 +29,9 @@
           <tr><td>Usage events</td><td>TV paired or connected, paywall opened, ad watched, app updated</td><td>Understand which features work and where people get stuck</td><td>Google Firebase Analytics</td></tr>
           <tr><td>Device and TV details</td><td>iPhone model, iOS version, app version, language, region, TV maker and Android version</td><td>Fix problems that affect certain devices or TVs</td><td>Firebase Analytics and Crashlytics</td></tr>
           <tr><td>Crash and error reports</td><td>Crash logs, failed pairing or connection steps</td><td>Find and fix bugs</td><td>Google Firebase Crashlytics</td></tr>
-          <tr><td>App identifiers</td><td>Firebase app instance ID, an anonymous RevenueCat customer ID, the advertising identifiers Google Mobile Ads uses</td><td>Count usage, link purchases to your device, show and measure ads</td><td>Firebase, RevenueCat, Google AdMob</td></tr>
+          <tr><td>App identifiers</td><td>Firebase app instance ID, an anonymous RevenueCat customer ID, the ad identifiers the ad networks use, and your iPhone's advertising identifier (IDFA) only if you allow tracking</td><td>Count usage, link purchases to your device, show and measure ads</td><td>Firebase, RevenueCat, Google AdMob and its ad partners</td></tr>
           <tr><td>Purchase information</td><td>Which plan you bought, renewal and expiry dates</td><td>Unlock Remote Pro and restore it on your other devices</td><td>Apple and RevenueCat</td></tr>
-          <tr><td>Ad interactions</td><td>Rewarded ads you choose to watch</td><td>Give you extra free time and show relevant ads</td><td>Google AdMob</td></tr>
+          <tr><td>Ad interactions</td><td>Rewarded ads you choose to watch, whether you watched or tapped them, and the device details needed to deliver them (such as IP address, device model and iOS version)</td><td>Give you extra free time, show relevant ads and prevent ad fraud</td><td>Google AdMob, Meta Audience Network, Liftoff</td></tr>
         </tbody>
       </table>
     </div>
@@ -39,10 +39,11 @@
     <p>If you report a problem from Settings, the App opens an email (or the share sheet) with a diagnostic log attached. The log lists the App and device versions, your network type, whether you have Remote Pro, the last TV model you connected to, and recent connection steps. You can read the email before sending it, and nothing is sent unless you send it.</p>
 
     <h2>What stays on your iPhone and your TV</h2>
-    <p>Voice, typing and your photos go straight from your iPhone to your TV or stay on your iPhone; we never receive them.</p>
+    <p>Voice, typing, the camera and your photos go straight from your iPhone to your TV or stay on your iPhone; we never receive them.</p>
     <ul>
       <li><strong>Voice.</strong> When you tap the voice key, the App streams your microphone audio over your local network directly to your TV. The TV and its own assistant process it under the TV maker's and Google's terms.</li>
       <li><strong>Typing.</strong> Text you type with the iPhone keyboard is sent only to your TV.</li>
+      <li><strong>Camera.</strong> When you scan the pairing code, the camera image is read on your iPhone to find the code, which is then sent only to your TV. No image or video is saved or sent anywhere.</li>
       <li><strong>Paired TVs.</strong> Each TV's name, local IP address and pairing certificate are saved on your iPhone so it can reconnect.</li>
       <li><strong>Your photos.</strong> Photos you pick as a remote background are copied into the App's storage on your iPhone (up to 3). The App only gets the photos you pick, not your library.</li>
       <li><strong>Settings and free time.</strong> Your remote style, layout and remaining free time are saved on your iPhone.</li>
@@ -58,6 +59,8 @@
         <tbody>
           <tr><td>Google Firebase (Analytics, Crashlytics, Remote Config)</td><td>Usage statistics, crash reports, remote settings such as how much free time an ad earns</td><td><a href="https://policies.google.com/privacy">policies.google.com/privacy</a></td></tr>
           <tr><td>Google AdMob and User Messaging Platform</td><td>Rewarded video ads and the ad consent form</td><td><a href="https://policies.google.com/technologies/ads">policies.google.com/technologies/ads</a></td></tr>
+          <tr><td>Meta Audience Network</td><td>Supplies some of the rewarded ads AdMob shows</td><td><a href="https://www.facebook.com/privacy/policy/">facebook.com/privacy/policy</a></td></tr>
+          <tr><td>Liftoff (formerly Vungle)</td><td>Supplies some of the rewarded ads AdMob shows</td><td><a href="https://liftoff.ai/privacy-policy/">liftoff.ai/privacy-policy</a></td></tr>
           <tr><td>RevenueCat</td><td>Manages Remote Pro subscriptions and purchases</td><td><a href="https://www.revenuecat.com/privacy">revenuecat.com/privacy</a></td></tr>
           <tr><td>Apple</td><td>Payments, subscriptions, App Store</td><td><a href="https://www.apple.com/legal/privacy/">apple.com/legal/privacy</a></td></tr>
         </tbody>
@@ -66,13 +69,15 @@
     <p>We may also disclose information if the law requires it, or to protect the App and its users.</p>
 
     <h2>Permissions</h2>
-    <p>The App asks for two permissions, each only when you first use the feature that needs it. You can change them anytime in iOS Settings &gt; TV Remote.</p>
+    <p>The App asks for these permissions, each only when you first use the feature that needs it. You can change them anytime in iOS Settings &gt; TV Remote.</p>
     <div class="table-wrap">
       <table>
         <thead><tr><th>Permission</th><th>Used for</th><th>If you decline</th></tr></thead>
         <tbody>
           <tr><td>Local Network</td><td>Finding TVs on your Wi‑Fi and controlling them</td><td>The App cannot find or control your TV</td></tr>
           <tr><td>Microphone</td><td>Voice search and talking to your TV's assistant</td><td>Everything except voice still works</td></tr>
+          <tr><td>Camera</td><td>Scanning the pairing code shown on your TV</td><td>You type the code instead</td></tr>
+          <tr><td>Tracking</td><td>Asked before the first ad you choose to watch, so ads can be personalized using your advertising identifier</td><td>Ads still play and still earn free time, but are less personalized</td></tr>
         </tbody>
       </table>
     </div>
@@ -82,7 +87,8 @@
     <p>Ads appear only when you choose to watch one for extra free time, and Remote Pro removes them entirely.</p>
     <ul>
       <li>Where the law requires consent (for example in the EEA, the UK and Switzerland), Google's consent form asks you before personalized ads are shown. You can change your choice anytime in Settings &gt; Ad privacy choices.</li>
-      <li>The App does not ask for permission to track you across other companies' apps and websites, so it does not access your iPhone's advertising identifier (IDFA). Ads may still be chosen using non-personal information such as your country and the App's content.</li>
+      <li>Before the first ad, iOS asks whether the App may track you across other companies' apps and websites. If you allow it, Google AdMob and its ad partners (Meta Audience Network and Liftoff) may use your iPhone's advertising identifier (IDFA) to show and measure personalized ads. If you ask the App not to track, the IDFA is not shared, and ads are chosen using non-personal information such as your country and the App's content. You can change this anytime in iOS Settings &gt; Privacy &amp; Security &gt; Tracking.</li>
+      <li>AdMob picks which network supplies each ad. The networks receive the data listed above only when an ad is requested or shown.</li>
       <li>You can turn off personalized ads for all Apple services in iOS Settings &gt; Privacy &amp; Security &gt; Apple Advertising.</li>
     </ul>
 
