@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Get Remote TV</title>
+  <meta name="robots" content="noindex">
+  <meta name="theme-color" content="#07070A">
+  <link rel="icon" href="../assets/favicon.png">
+  <script>
+    // The download QR code lands here: iPhone and iPad go to the App Store, Android to Google
+    // Play, anything else to the download section of the home page.
+    (function () {
+      var ua = navigator.userAgent || "";
+      // iPadOS reports itself as a Mac; a Mac has no touch screen.
+      var ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+      var android = /Android/i.test(ua);
+      var to = ios ? "https://apps.apple.com/app/id6826484545"
+        : android ? "https://play.google.com/store/apps/details?id=com.lmk.tvremote"
+        : "../#download";
+      location.replace(to);
+    })();
+  </script>
+  <style>
+    body { margin: 0; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;
+      background: #07070A; color: #C9CBD1; font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; text-align: center; }
+    img.badge { height: 56px; width: auto; }
+  </style>
+</head>
+<body>
+  <!-- Shown only if the redirect doesn't run: both stores, by hand. -->
+  <p>Get Remote TV</p>
+  <a href="https://apps.apple.com/app/id6826484545"><img class="badge" src="../assets/app-store-badge.svg" alt="Download on the App Store"></a>
+  <a href="https://play.google.com/store/apps/details?id=com.lmk.tvremote"><img class="badge" src="../assets/google-play-badge.png" alt="Get it on Google Play"></a>
+</body>
+</html>

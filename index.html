@@ -4,9 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Remote TV for Android TV &amp; Google TV</title>
-  <meta name="description" content="Turn your iPhone into a remote for Android TV and Google TV: voice search, typing with your phone keyboard, a smooth trackpad, and remote styles you make your own.">
+  <meta name="description" content="Turn your iPhone or Android phone into a remote for Android TV and Google TV: a voice assistant, your phone keyboard, a smooth trackpad, photo casting, screen mirroring, a gamepad, and layouts and styles you make your own.">
   <meta property="og:title" content="Remote TV: your phone is the remote">
-  <meta property="og:description" content="Voice, keyboard, trackpad and D-pad for Android TV and Google TV, right on your iPhone.">
+  <meta property="og:description" content="Voice, keyboard, trackpad, casting, mirroring and a gamepad for Android TV and Google TV, right on your phone.">
   <meta property="og:image" content="assets/tet-gold.jpg">
   <meta name="theme-color" content="#07070A">
   <link rel="icon" href="assets/favicon.png">
@@ -26,26 +26,34 @@
         <a href="#pro">Remote Pro</a>
         <a href="#faq">FAQ</a>
       </div>
-      <a class="btn btn-primary btn-sm" href="https://apps.apple.com/app/id6826484545">Get the app</a>
+      <a class="btn btn-primary btn-sm" href="#download">Get the app</a>
     </div>
   </nav>
 
   <header class="hero">
+    <picture class="hero-room">
+      <!-- Phones hide the room, so they get a 1-pixel image instead of downloading the photo. -->
+      <source media="(max-width: 900px)" srcset="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7">
+      <source srcset="assets/hero-room-v2.webp" type="image/webp">
+      <img src="assets/hero-room-v2.jpg" alt="A cozy living room at night, lit by a TV showing a streaming home screen" width="1664" height="936" fetchpriority="high">
+    </picture>
+    <div class="hero-phones" aria-hidden="true">
+      <div class="trio">
+        <img src="assets/hero-phone-classic.webp" alt="" width="860" height="1800">
+        <img src="assets/hero-phone-halloween.webp" alt="" width="860" height="1800">
+        <img src="assets/hero-phone-glass.webp" alt="" width="860" height="1800">
+      </div>
+    </div>
     <div class="wrap">
-      <div>
+      <div class="hero-copy">
         <span class="eyebrow"><i></i>For Android TV &amp; Google TV</span>
         <h1>Your phone is <span class="grad">the remote.</span></h1>
-        <p class="lead">Control your TV from your iPhone with voice, your phone keyboard, a smooth trackpad and a classic D-pad. No more hunting under the sofa.</p>
+        <p class="lead">Control your TV from your phone with your voice, your phone keyboard and a smooth trackpad. Cast your photos, mirror your screen and play games too. No more hunting under the sofa.</p>
         <div class="cta-row">
           <a class="store-badge" href="https://apps.apple.com/app/id6826484545"><img src="assets/app-store-badge.svg" alt="Download on the App Store" width="168" height="56"></a>
-          <a class="btn btn-ghost" href="#features">See how it works</a>
+          <a class="store-badge" href="https://play.google.com/store/apps/details?id=com.lmk.tvremote"><img src="assets/google-play-badge.png" alt="Get it on Google Play" width="188" height="56"></a>
         </div>
         <p class="trust">Free to download · Connects over your Wi‑Fi · No account needed</p>
-      </div>
-      <div class="phones" aria-hidden="true">
-        <div class="phone p2"><img src="assets/prism-glass.jpg" alt=""></div>
-        <div class="phone p3"><img src="assets/leather-floating.jpg" alt=""></div>
-        <div class="phone p1"><img src="assets/tet-gold.jpg" alt=""></div>
       </div>
     </div>
   </header>
@@ -54,17 +62,17 @@
     <div class="wrap">
       <div class="section-head">
         <h2>Everything your remote does. <span class="grad">Then more.</span></h2>
-        <p>Pair once with the code on your TV, and your iPhone reconnects by itself from then on.</p>
+        <p>Pair once with the code on your TV, or scan it with your camera, and your phone reconnects by itself from then on.</p>
       </div>
 
       <div class="feature voice">
-        <div class="feature-art"><video src="assets/scene-voice.mp4" poster="assets/scene-voice.jpg" autoplay muted loop playsinline preload="metadata" aria-label="Tapping the mic in Remote TV: the TV listens and hears “Play lo-fi beats”"></video></div>
+        <div class="feature-art"><video src="assets/scene-voice.mp4" poster="assets/scene-voice.jpg" autoplay muted loop playsinline preload="metadata" aria-label="Tapping the mic in Remote TV: the TV hears “Play lo-fi beats” and starts playing it"></video></div>
         <div>
-          <span class="tag"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>Voice Search</span>
-          <h3>Say it. Watch it.</h3>
-          <p>Tap the mic and say what you want to watch. Your TV finds it for you.</p>
+          <span class="tag"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>Voice Assistant</span>
+          <h3>Voice assistant in one tap.</h3>
+          <p>Tap the mic and ask your TV for a show, a song or an app. No more scrolling to find it.</p>
           <ul>
-            <li>Search shows, movies and apps by voice</li>
+            <li>Find shows, movies, music and apps by voice</li>
             <li>Talks to your TV's own assistant</li>
             <li>Your voice goes straight to your TV, never to us</li>
           </ul>
@@ -72,15 +80,43 @@
       </div>
 
       <div class="feature typing flip">
-        <div class="feature-art"><video src="assets/scene-typing.mp4" poster="assets/scene-typing.jpg" autoplay muted loop playsinline preload="metadata" aria-label="Typing “Midnight Train” on the iPhone keyboard; the text appears in the TV’s search"></video></div>
+        <div class="feature-art"><video src="assets/scene-typing.mp4" poster="assets/scene-typing.jpg" autoplay muted loop playsinline preload="metadata" aria-label="Typing “Midnight Train” on the phone keyboard; the text appears in the TV’s search, and the show starts"></video></div>
         <div>
           <span class="tag"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01M18 10h.01M7 14h10"/></svg>Easy Typing</span>
-          <h3>Type with your phone, not the D-pad.</h3>
-          <p>Search and sign in with your iPhone keyboard. The keyboard pops up the moment your TV asks for text.</p>
+          <h3>Type with your phone’s keyboard.</h3>
+          <p>It pops up on its own whenever your TV asks for text. Typing takes seconds, not minutes.</p>
           <ul>
             <li>Search, emails and passwords in seconds</li>
-            <li>Paste from your iPhone</li>
+            <li>Paste from your phone</li>
             <li>Text goes only to your TV</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="feature cast">
+        <div class="feature-art"><video src="assets/scene-cast.mp4" poster="assets/scene-cast.jpg" autoplay muted loop playsinline preload="metadata" aria-label="Tapping a beach photo in the Cast tab puts it on the TV, then a lake photo"></video></div>
+        <div>
+          <span class="tag"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 8V6a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-6"/><path d="M2 12a8 8 0 0 1 8 8M2 16a4 4 0 0 1 4 4M2 20h.01"/></svg>Cast &amp; Mirror</span>
+          <h3>Cast photos, mirror your screen.</h3>
+          <p>Show your photos and videos on the TV, or mirror your whole phone screen.</p>
+          <ul>
+            <li>Photos and videos in one tap, swipe to the next</li>
+            <li>Mirror your whole screen, sound included</li>
+            <li>Straight to your TV over Wi‑Fi, never uploaded</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="feature gamepad flip">
+        <div class="feature-art"><video src="assets/scene-gamepad.mp4" poster="assets/scene-gamepad.jpg" autoplay muted loop playsinline preload="metadata" aria-label="The phone on its side as a gamepad, steering a race on the TV"></video></div>
+        <div>
+          <span class="tag"><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 6.5h10a4.2 4.2 0 0 1 4.1 3.4l1.1 5.6a2.7 2.7 0 0 1-4.6 2.4L15.3 15.5H8.7L6.4 17.9a2.7 2.7 0 0 1-4.6-2.4l1.1-5.6A4.2 4.2 0 0 1 7 6.5z"/><path d="M7.5 9.6v3.6M5.7 11.4h3.6M15.6 10.3h.01M18 12.4h.01"/></svg>Gamepad</span>
+          <h3>Your phone is a game controller.</h3>
+          <p>Playing games on your TV has never been easier. Just grab your phone and play.</p>
+          <ul>
+            <li>A D-pad or a stick, plus A, B, X and Y</li>
+            <li>Back, Home and Menu between your thumbs</li>
+            <li>No extra hardware to buy</li>
           </ul>
         </div>
       </div>
@@ -104,16 +140,18 @@
   <section id="styles" class="styles">
     <div class="wrap">
       <div class="section-head">
-        <h2>Make it <span class="grad">yours.</span></h2>
-        <p>Gold, marble, walnut, seasonal themes, or your own photo as the background, with key styles to match.</p>
+        <h2>Custom layouts <span class="grad">and styles.</span></h2>
+        <p>Arrange the buttons your way, then pick the backgrounds and button styles you love: gold, marble, walnut, seasonal themes or your own photo.</p>
       </div>
     </div>
     <div class="styles-fade">
       <div class="marquee" aria-hidden="true">
         <div class="phone"><img src="assets/marble-gold.jpg" alt="" loading="lazy"></div>
+        <div class="phone"><img src="assets/halloween-silver.jpg" alt="" loading="lazy"></div>
         <div class="phone"><img src="assets/synth-glass.jpg" alt="" loading="lazy"></div>
         <div class="phone"><img src="assets/walnut-wood.jpg" alt="" loading="lazy"></div>
         <div class="phone"><img src="assets/sakura-glass.jpg" alt="" loading="lazy"></div>
+        <div class="phone"><img src="assets/leather-soft.jpg" alt="" loading="lazy"></div>
         <div class="phone"><img src="assets/xmas-silver.jpg" alt="" loading="lazy"></div>
         <div class="phone"><img src="assets/starry-gloss.jpg" alt="" loading="lazy"></div>
         <div class="phone"><img src="assets/rosegold-gold.jpg" alt="" loading="lazy"></div>
@@ -121,9 +159,11 @@
         <div class="phone"><img src="assets/tet-gold.jpg" alt="" loading="lazy"></div>
         <div class="phone"><img src="assets/prism-glass.jpg" alt="" loading="lazy"></div>
         <div class="phone"><img src="assets/marble-gold.jpg" alt="" loading="lazy"></div>
+        <div class="phone"><img src="assets/halloween-silver.jpg" alt="" loading="lazy"></div>
         <div class="phone"><img src="assets/synth-glass.jpg" alt="" loading="lazy"></div>
         <div class="phone"><img src="assets/walnut-wood.jpg" alt="" loading="lazy"></div>
         <div class="phone"><img src="assets/sakura-glass.jpg" alt="" loading="lazy"></div>
+        <div class="phone"><img src="assets/leather-soft.jpg" alt="" loading="lazy"></div>
         <div class="phone"><img src="assets/xmas-silver.jpg" alt="" loading="lazy"></div>
         <div class="phone"><img src="assets/starry-gloss.jpg" alt="" loading="lazy"></div>
         <div class="phone"><img src="assets/rosegold-gold.jpg" alt="" loading="lazy"></div>
@@ -144,7 +184,7 @@
         <div class="card">
           <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
           <h4>Pair in seconds</h4>
-          <p>Enter the code your TV shows once. After that, it connects by itself.</p>
+          <p>Enter the code your TV shows once, or scan it with your camera. After that, it connects by itself.</p>
         </div>
         <div class="card">
           <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="19" height="13" rx="2"/><path d="M12 17v4M8 21h8"/></svg>
@@ -157,14 +197,14 @@
           <p>An encrypted link to your TV. No account, and your voice and text never reach us.</p>
         </div>
         <div class="card">
-          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v8"/><path d="M6.3 6.9a8 8 0 1 0 11.4 0"/></svg>
-          <h4>Power and volume</h4>
-          <p>Turn the TV on or off, mute and change the volume, with the TV's state shown live.</p>
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg>
+          <h4>Your apps, one tap away</h4>
+          <p>Open your TV's apps right from your phone. Missing one? Add it by name or from its Google Play link.</p>
         </div>
         <div class="card">
           <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/></svg>
           <h4>Just Wi‑Fi</h4>
-          <p>No extra hardware. Your iPhone and TV only need the same Wi‑Fi network.</p>
+          <p>No extra hardware. Your phone and TV only need the same Wi‑Fi network.</p>
         </div>
         <div class="card">
           <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></svg>
@@ -182,11 +222,11 @@
           <span class="pro-badge">REMOTE PRO</span>
           <h2>Unlimited, ad-free, <span class="grad">all yours.</span></h2>
           <p>Remote TV is free to start. Watch a short ad when you need more time, or go Pro and forget about it.</p>
-          <a class="btn btn-primary" href="https://apps.apple.com/app/id6826484545">Download free</a>
+          <a class="btn btn-primary" href="#download">Download free</a>
         </div>
         <ul class="pro-list">
           <li><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 12c-2-2.7-3.6-4-5.5-4a4 4 0 0 0 0 8c1.9 0 3.5-1.3 5.5-4zm0 0c2 2.7 3.6 4 5.5 4a4 4 0 0 0 0-8c-1.9 0-3.5 1.3-5.5 4z"/></svg>No ads, no time limits</li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 0 0 0 18c1.2 0 1.8-.8 1.8-1.7 0-.5-.2-.9-.5-1.2-.3-.4-.5-.8-.5-1.3 0-1 .8-1.8 1.8-1.8H17a4 4 0 0 0 4-4c0-4.4-4-8-9-8z"/><circle cx="7.5" cy="11.5" r="1"/><circle cx="10.5" cy="7.5" r="1"/><circle cx="15" cy="7.5" r="1"/></svg>Customize your remote freely</li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 0 0 0 18c1.2 0 1.8-.8 1.8-1.7 0-.5-.2-.9-.5-1.2-.3-.4-.5-.8-.5-1.3 0-1 .8-1.8 1.8-1.8H17a4 4 0 0 0 4-4c0-4.4-4-8-9-8z"/><circle cx="7.5" cy="11.5" r="1"/><circle cx="10.5" cy="7.5" r="1"/><circle cx="15" cy="7.5" r="1"/></svg>Every style, and your own layouts</li>
           <li><svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="4" width="19" height="13" rx="2"/><path d="M12 17v4M8 21h8"/></svg>Connect all your TVs</li>
         </ul>
       </div>
@@ -210,8 +250,16 @@
           <p>The first time you connect, your TV shows a code to make sure it's your phone. After that, the TV remembers your phone and connects without a code.</p>
         </details>
         <details>
+          <summary>Do casting and mirroring work with my TV?</summary>
+          <p>They need Chromecast built-in, which Google TV and most Android TVs have. Mirroring shows your screen a few seconds behind your phone, so it suits photos and videos better than games, and protected videos from streaming apps show as black.</p>
+        </details>
+        <details>
+          <summary>Which games can I play with the gamepad?</summary>
+          <p>Games on your TV that work with a controller's D-pad and buttons. Turn your phone sideways and choose a D-pad or a stick, with A, B, X and Y, Back, Home and Menu.</p>
+        </details>
+        <details>
           <summary>Can I connect over Bluetooth?</summary>
-          <p>No. iPhone can't connect to a TV's remote service over Bluetooth, so Remote TV works over Wi‑Fi only.</p>
+          <p>On Android, yes: Remote TV can also reach your TV over Bluetooth. iPhone can't connect to a TV's remote service over Bluetooth, so on iPhone it works over Wi‑Fi only.</p>
         </details>
         <details>
           <summary>Can I use more than one TV?</summary>
@@ -219,19 +267,26 @@
         </details>
         <details>
           <summary>Is Remote TV free?</summary>
-          <p>Yes, it's free to download and use. You get some free time the first time you connect a TV; when it runs out, watch a short ad for more, or get Remote Pro for unlimited use with no ads, every remote style and all your TVs.</p>
+          <p>Yes, it's free to download and use. You get some free time the first time you connect a TV; when it runs out, watch a short ad for more, or get Remote Pro for unlimited use with no ads, every remote style, your own layouts and all your TVs.</p>
         </details>
       </div>
       <p class="faq-more">More questions? See <a href="support.html#faq">Support</a>.</p>
     </div>
   </section>
 
-  <section class="final">
+  <section class="final" id="download">
     <div class="wrap">
       <img class="app-icon" src="assets/icon.png" alt="Remote TV app icon">
       <h2>Put the remote <span class="grad">in your pocket.</span></h2>
-      <p>Free on the App Store for iPhone.</p>
-      <a class="store-badge" href="https://apps.apple.com/app/id6826484545"><img src="assets/app-store-badge.svg" alt="Download on the App Store" width="168" height="56"></a>
+      <p>Free for iPhone and Android.</p>
+      <div class="badges">
+        <a class="store-badge" href="https://apps.apple.com/app/id6826484545"><img src="assets/app-store-badge.svg" alt="Download on the App Store" width="168" height="56"></a>
+        <a class="store-badge" href="https://play.google.com/store/apps/details?id=com.lmk.tvremote"><img src="assets/google-play-badge.png" alt="Get it on Google Play" width="188" height="56"></a>
+      </div>
+      <figure class="qr">
+        <figcaption>Scan to download</figcaption>
+        <img src="assets/qr-download.svg" alt="QR code to download Remote TV" width="228" height="228">
+      </figure>
     </div>
   </section>
 
@@ -240,7 +295,7 @@
       <a href="privacy.html">Privacy Policy</a>
       <a href="terms.html">Terms of Use</a>
       <a href="support.html">Support</a>
-      <span class="copy">&copy; 2026 LMK Studio. Android TV and Google TV are trademarks of Google LLC.</span>
+      <span class="copy">&copy; 2026 LMK Studio. Android TV, Google TV and Chromecast are trademarks of Google LLC.</span>
     </div>
   </footer>
   <script>

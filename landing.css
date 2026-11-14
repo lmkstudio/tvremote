@@ -65,18 +65,38 @@ a { color: inherit; }
   background: linear-gradient(90deg, var(--accent-strong), var(--accent-deep)); color: #FFFFFF;
   box-shadow: 0 10px 30px rgba(33, 82, 232, 0.35);
 }
-.btn-ghost { color: var(--text); border: 1px solid rgba(255, 255, 255, 0.24); }
 .btn-sm { height: 40px; padding: 0 18px; font-size: 14px; }
 
 /* Hero */
-.hero { position: relative; padding: 72px 0 40px; overflow: hidden; }
-.hero::before {
-  content: ""; position: absolute; inset: -20% -10% auto; height: 900px; pointer-events: none;
-  background:
-    radial-gradient(38% 42% at 72% 38%, rgba(33, 82, 232, 0.42), transparent 70%),
-    radial-gradient(26% 30% at 70% 34%, rgba(46, 197, 255, 0.22), transparent 70%);
+/* The hero is the living room itself: the photo spans the page at 16:9 (up to 1560 pt, so a large
+   screen sees it at a laptop's scale), the copy sits on the dark wall on the left, three phones stand
+   under the TV, and the room sinks into the page at the top, bottom and, past 1560 pt, the sides. */
+.hero {
+  --room: min(100vw, 1560px);
+  position: relative; display: flex; align-items: center; min-height: calc(var(--room) * 0.5625); padding: 64px 0; overflow: hidden;
 }
-.hero .wrap { position: relative; display: grid; grid-template-columns: 1.05fr 1fr; align-items: center; gap: 40px; }
+.hero-room, .hero-phones { position: absolute; top: 0; left: 50%; width: var(--room); height: calc(var(--room) * 0.5625); transform: translateX(-50%); }
+@media (min-width: 1561px) {
+  .hero-room {
+    -webkit-mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
+    mask-image: linear-gradient(90deg, transparent, #000 14%, #000 86%, transparent);
+  }
+}
+.hero-room img { width: 100%; height: 100%; object-fit: cover; }
+.hero-room::after {
+  content: ""; position: absolute; inset: 0;
+  background:
+    linear-gradient(rgba(7, 7, 10, 0.38), rgba(7, 7, 10, 0.38)),
+    linear-gradient(90deg, rgba(7, 7, 10, 0.86) 0%, rgba(7, 7, 10, 0.62) 30%, rgba(7, 7, 10, 0) 56%),
+    linear-gradient(to bottom, rgba(7, 7, 10, 0.55) 0%, rgba(7, 7, 10, 0) 16%, rgba(7, 7, 10, 0) 62%, var(--bg) 100%);
+}
+/* The phones stand in front of the TV, centred in the space right of the copy and a little below the
+   hero's vertical centre, so more of the TV shows above them. The room is dimmed so they stand out. */
+.hero-phones { pointer-events: none; }
+.trio { position: absolute; left: 68%; top: 55%; display: flex; gap: calc(var(--room) * 0.012); transform: translate(-50%, -50%); }
+.trio img { width: calc(var(--room) * 0.115); height: auto; filter: drop-shadow(0 24px 36px rgba(0, 0, 0, 0.65)); }
+.hero .wrap { position: relative; width: 100%; }
+.hero-copy { max-width: 560px; }
 .eyebrow {
   display: inline-flex; align-items: center; gap: 8px;
   padding: 6px 12px; border-radius: 999px; border: 1px solid var(--border); background: rgba(255, 255, 255, 0.04);
@@ -92,8 +112,8 @@ h1 {
 .cta-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
 .trust { margin-top: 22px; color: var(--text-muted); font-size: 14px; }
 
-/* Phones */
-.phones { position: relative; height: 640px; }
+
+/* Phones in the styles marquee */
 .phone {
   position: absolute; width: 270px; padding: 8px; border-radius: 52px;
   background: linear-gradient(160deg, #3A3C44, #15161B 40%, #0B0B0E);
@@ -104,9 +124,6 @@ h1 {
   content: ""; position: absolute; z-index: 1; top: 20px; left: 50%; width: 80px; height: 24px; margin-left: -40px;
   border-radius: 12px; background: #000;
 }
-.phones .p1 { left: 50%; top: 0; margin-left: -135px; z-index: 3; }
-.phones .p2 { left: 50%; top: 70px; margin-left: -135px; transform: translateX(-62%) rotate(-10deg) scale(0.86); filter: brightness(0.82); }
-.phones .p3 { left: 50%; top: 70px; margin-left: -135px; transform: translateX(62%) rotate(10deg) scale(0.86); filter: brightness(0.82); }
 
 /* Sections */
 section { padding: 96px 0; }
@@ -144,13 +161,19 @@ h2 { margin: 0 0 14px; color: var(--text); font-size: clamp(34px, 4.4vw, 52px); 
 .trackpad .tag { color: #C4B5FD; } .trackpad .tag svg { background: rgba(139, 92, 246, 0.16); stroke: #A78BFA; }
 .trackpad h3 { background: linear-gradient(90deg, #C4B5FD, #F0ABFC); -webkit-background-clip: text; background-clip: text; color: transparent; }
 .trackpad li::before { color: #D946EF; }
+.cast .tag { color: #FCD34D; } .cast .tag svg { background: rgba(245, 158, 11, 0.16); stroke: #F59E0B; }
+.cast h3 { background: linear-gradient(90deg, #FCD34D, #FDA4AF); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.cast li::before { color: #FB7185; }
+.gamepad .tag { color: #67E8F9; } .gamepad .tag svg { background: rgba(34, 211, 238, 0.14); stroke: #22D3EE; }
+.gamepad h3 { background: linear-gradient(90deg, #67E8F9, #A5B4FC); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.gamepad li::before { color: #818CF8; }
 
 /* Styles marquee */
 .styles { overflow: hidden; }
 .marquee { display: flex; gap: 24px; width: max-content; animation: scroll 60s linear infinite; padding: 10px 0 30px; }
 .marquee:hover { animation-play-state: paused; }
 .marquee .phone { position: relative; width: 220px; flex: none; border-radius: 44px; padding: 7px; }
-.marquee .phone img { border-radius: 37px; aspect-ratio: 603 / 1100; object-fit: cover; object-position: top; }
+.marquee .phone img { border-radius: 37px; aspect-ratio: 603 / 1311; object-fit: cover; object-position: top; }
 .marquee .phone::before { top: 17px; width: 64px; height: 20px; margin-left: -32px; }
 .styles-fade { position: relative; }
 .styles-fade::before, .styles-fade::after { content: ""; position: absolute; top: 0; bottom: 0; width: 120px; z-index: 2; pointer-events: none; }
@@ -197,6 +220,13 @@ h2 { margin: 0 0 14px; color: var(--text); font-size: clamp(34px, 4.4vw, 52px); 
 .final .app-icon { width: 96px; height: 96px; margin: 0 auto 28px; border-radius: 22px; box-shadow: 0 20px 60px rgba(33, 82, 232, 0.4); }
 .final p { margin: 0 auto 32px; max-width: 520px; font-size: 18px; }
 .final .store-badge img { height: 68px; }
+/* The App Store and Google Play badges side by side, wrapping on a narrow screen. */
+.final .badges { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; }
+/* One code for a computer screen, to get/: it sends iPhone to the App Store, Android to Google
+   Play. Large, with a white quiet zone, so a phone camera reads it at a glance. */
+.final .qr { margin: 28px auto 0; }
+.final .qr img { width: 228px; height: 228px; margin: 0 auto; padding: 22px; border-radius: 18px; background: #FFFFFF; }
+.final .qr figcaption { margin-bottom: 12px; color: var(--text-muted); font-size: 14px; }
 .footer { padding: 32px 0 48px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 14px; }
 .footer .wrap { display: flex; flex-wrap: wrap; gap: 12px 28px; align-items: center; }
 .footer a { color: var(--text-muted); text-decoration: none; }
@@ -207,15 +237,20 @@ h2 { margin: 0 0 14px; color: var(--text); font-size: clamp(34px, 4.4vw, 52px); 
 @media (max-width: 900px) {
   .nav-links { display: none; }
   .nav .btn-sm { margin-left: auto; }
-  .hero { padding-top: 48px; }
-  .hero .wrap { grid-template-columns: 1fr; text-align: center; }
+  /* Phones: no room, just the copy and then the three phones under it. */
+  .hero { --room: 100vw; flex-direction: column; align-items: stretch; min-height: 0; padding: 40px 0 24px; text-align: center; }
+  .hero-room { display: none; }
+  .hero-phones { order: 1; position: relative; left: auto; width: auto; height: auto; transform: none; margin-top: 40px; }
+  .trio { position: relative; left: auto; top: auto; justify-content: center; gap: 3vw; transform: none; }
+  .trio img { width: min(29vw, 220px); }
+  .hero-copy { margin: 0 auto; }
   .lead { margin-left: auto; margin-right: auto; }
   .cta-row { justify-content: center; }
-  .phones { height: 520px; margin-top: 20px; }
+  /* Phones and tablets open the App Store from the badge; the code is for a computer screen. */
+  .qr { display: none; }
   .phone { width: 220px; border-radius: 44px; padding: 7px; }
   .phone img { border-radius: 37px; }
   .phone::before { top: 17px; width: 64px; height: 20px; margin-left: -32px; }
-  .phones .p1, .phones .p2, .phones .p3 { margin-left: -110px; }
   section { padding: 64px 0; }
   .feature, .feature.flip { grid-template-columns: 1fr; gap: 32px; text-align: left; }
   .feature.flip .feature-art { order: 0; }
@@ -224,8 +259,6 @@ h2 { margin: 0 0 14px; color: var(--text); font-size: clamp(34px, 4.4vw, 52px); 
   .footer .copy { margin-left: 0; width: 100%; }
 }
 @media (max-width: 420px) {
-  .phones { height: 440px; }
   .phone { width: 190px; }
-  .phones .p1, .phones .p2, .phones .p3 { margin-left: -95px; }
   .pro-card .btn { width: 100%; }
 }
