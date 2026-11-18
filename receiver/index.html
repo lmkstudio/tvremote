@@ -79,18 +79,19 @@
       // Mirroring: the phone serves one endless fragmented MP4 body with a fragment per frame; it
       // is fed to Media Source Extensions as it arrives, and the playhead is kept just behind the
       // newest frame. Videos: standard Cast LOAD requests, played by the framework's player on
-      // #media. Photos: SHOW messages on the app's namespace. The phone sends videos that need a
-      // player library (HLS) to the Default Media Receiver, so this page skips loading them.
+      // #media, HLS (videos the phone converts) through Shaka Player. Photos: SHOW messages on the
+      // app's namespace.
       //
       // Messages on NAMESPACE, each answered with its requestId:
-      //   STATE {lang}         -> STATE {visible, version}   (version 2 shows photos and videos)
+      //   STATE {lang}         -> STATE {visible, version}   version 2 shows photos and videos,
+      //                                                      version 3 also plays HLS
       //   CHECK {types}        -> CHECK {ok}                 can Media Source play these types
       //   PLAY {url, audio, lang} -> PLAYING {visible}       mirror this stream
       //   SHOW {url, lang}     -> SHOWN {visible} | ERROR    show this photo, once it is decoded
       //   STATS                -> STATS {...}                mirror metrics
       // Sent unasked: HIDDEN (Home on the TV while showing something), ERROR {message} (the
       // mirror stream failed).
-      const VERSION = 2;
+      const VERSION = 3;
       const NAMESPACE = 'urn:x-cast:com.lmk.tvremote.mirror';
       const TARGET_LAG = 0.1;   // seconds of video kept ahead of the playhead
       // Above this, play slightly faster. With audio the buffer settles near 0.3 s, so a lower
@@ -466,7 +467,10 @@
         });
         const options = new cast.framework.CastReceiverOptions();
         options.disableIdleTimeout = true;
-        // EXPERIMENT: Shaka loaded so this page plays HLS too.
+        // HLS needs a player library, which the framework only loads at start, never when an
+        // HLS item arrives. Shaka costs about 13% more time to open the page (0.25 s on the TV
+        // emulator), which beats switching receivers for every converted video (up to 15 s on
+        // slow TVs). The older MPL is never needed.
         options.skipMplLoad = true;
         options.useShakaForHls = true;
         options.customNamespaces = { [NAMESPACE]: cast.framework.system.MessageType.JSON };
