@@ -29,7 +29,9 @@
       // playhead is kept just behind the newest frame.
       const NAMESPACE = 'urn:x-cast:com.lmk.tvremote.mirror';
       const TARGET_LAG = 0.1;   // seconds of video kept ahead of the playhead
-      const CATCH_UP_LAG = 0.3; // above this, play slightly faster
+      // Above this, play slightly faster. With audio the buffer settles near 0.3 s, so a lower
+      // value would keep toggling the rate, which is audible.
+      const CATCH_UP_LAG = 0.5;
       const JUMP_LAG = 1.0;     // above this, jump straight to the newest frame
       const KEEP_BEHIND = 5;    // seconds of played video kept in the buffer
 
@@ -45,59 +47,76 @@
       let session = 0;
       let abort = null;
 
-      async function play(url, report) {
+      // Plays the phone's video stream and, if given, its audio stream. Each gets its own
+      // SourceBuffer; the media element keeps them in step by timestamp.
+      async function play(url, audioUrl, report) {
         const current = ++session;
         if (abort) abort.abort();
         abort = new AbortController();
         message.textContent = 'Connecting…';
         message.style.display = 'flex';
         try {
-          const response = await fetch(url, { signal: abort.signal, cache: 'no-store' });
-          if (!response.ok) throw new Error('HTTP ' + response.status);
-          const mime = response.headers.get('content-type');
-          if (!window.MediaSource || !MediaSource.isTypeSupported(mime)) {
-            throw new Error('Unsupported stream: ' + mime);
-          }
+          const urls = audioUrl ? [url, audioUrl] : [url];
+          const responses = await Promise.all(
+            urls.map((u) => fetch(u, { signal: abort.signal, cache: 'no-store' })),
+          );
+          const types = responses.map((response) => {
+            if (!response.ok) throw new Error('HTTP ' + response.status);
+            const mime = response.headers.get('content-type');
+            if (!window.MediaSource || !MediaSource.isTypeSupported(mime)) {
+              throw new Error('Unsupported stream: ' + mime);
+            }
+            return mime;
+          });
           const source = new MediaSource();
           video.src = URL.createObjectURL(source);
+          video.muted = !audioUrl;
           await new Promise((resolve) => source.addEventListener('sourceopen', resolve, { once: true }));
-          const buffer = source.addSourceBuffer(mime);
-          buffer.mode = 'segments';
-          const queue = [];
-          const pump = () => {
-            if (current !== session || buffer.updating || !queue.length) return;
-            const size = queue.reduce((sum, chunk) => sum + chunk.length, 0);
-            const data = new Uint8Array(size);
-            let offset = 0;
-            for (const chunk of queue) { data.set(chunk, offset); offset += chunk.length; }
-            queue.length = 0;
-            metrics.appended += size;
-            buffer.appendBuffer(data);
-          };
-          buffer.addEventListener('updateend', () => {
-            if (current !== session) return;
-            chase();
-            const ranges = buffer.buffered;
-            if (ranges.length && video.currentTime - ranges.start(0) > KEEP_BEHIND * 2) {
-              buffer.remove(0, video.currentTime - KEEP_BEHIND);
-              return; // the removal ends with another updateend, which resumes appending
-            }
-            pump();
+          // Every SourceBuffer must exist before the first media data is appended.
+          const buffers = types.map((mime) => {
+            const buffer = source.addSourceBuffer(mime);
+            buffer.mode = 'segments';
+            return buffer;
           });
-          const reader = response.body.getReader();
-          for (;;) {
-            const { done, value } = await reader.read();
-            if (done) throw new Error('The phone ended the stream');
-            if (current !== session) return;
-            queue.push(value);
-            pump();
-          }
+          await Promise.race(buffers.map((buffer, i) => feed(buffer, responses[i].body.getReader(), current)));
         } catch (error) {
           if (current !== session || error.name === 'AbortError') return;
           metrics.error = String(error.message || error);
           message.textContent = metrics.error;
           message.style.display = 'flex';
           report({ type: 'ERROR', message: metrics.error });
+        }
+      }
+
+      // Appends a response body to a SourceBuffer as it arrives; rejects when the body ends.
+      async function feed(buffer, reader, current) {
+        const queue = [];
+        const pump = () => {
+          if (current !== session || buffer.updating || !queue.length) return;
+          const size = queue.reduce((sum, chunk) => sum + chunk.length, 0);
+          const data = new Uint8Array(size);
+          let offset = 0;
+          for (const chunk of queue) { data.set(chunk, offset); offset += chunk.length; }
+          queue.length = 0;
+          metrics.appended += size;
+          buffer.appendBuffer(data);
+        };
+        buffer.addEventListener('updateend', () => {
+          if (current !== session) return;
+          chase();
+          const ranges = buffer.buffered;
+          if (ranges.length && video.currentTime - ranges.start(0) > KEEP_BEHIND * 2) {
+            buffer.remove(0, video.currentTime - KEEP_BEHIND);
+            return; // the removal ends with another updateend, which resumes appending
+          }
+          pump();
+        });
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) throw new Error('The phone ended the stream');
+          if (current !== session) return;
+          queue.push(value);
+          pump();
         }
       }
 
@@ -132,7 +151,7 @@
 
       if (params.has('src')) {
         // Plain browser: the stream URL comes from the page address, for testing without Cast.
-        play(params.get('src'), (status) => console.warn(JSON.stringify(status)));
+        play(params.get('src'), params.get('audio'), (status) => console.warn(JSON.stringify(status)));
       } else {
         const context = cast.framework.CastReceiverContext.getInstance();
         context.addCustomMessageListener(NAMESPACE, (event) => {
@@ -141,7 +160,7 @@
           // Replies carry the request id so the phone can match them; later errors do not.
           if (data.type === 'PLAY' && data.url) {
             if (data.debug) stats.style.display = 'block';
-            play(data.url, report);
+            play(data.url, data.audio, report);
             report({ type: 'PLAYING', requestId: data.requestId });
           } else if (data.type === 'STATS') {
             report({ type: 'STATS', requestId: data.requestId, ...metrics });
