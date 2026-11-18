@@ -466,8 +466,9 @@
         });
         const options = new cast.framework.CastReceiverOptions();
         options.disableIdleTimeout = true;
-        // Faster to open. HLS, which needs these, goes to the Default Media Receiver.
-        options.skipPlayersLoad = true;
+        // EXPERIMENT: Shaka loaded so this page plays HLS too.
+        options.skipMplLoad = true;
+        options.useShakaForHls = true;
         options.customNamespaces = { [NAMESPACE]: cast.framework.system.MessageType.JSON };
         context.start(options);
       }
