@@ -138,12 +138,13 @@
         context.addCustomMessageListener(NAMESPACE, (event) => {
           const data = event.data || {};
           const report = (status) => context.sendCustomMessage(NAMESPACE, event.senderId, status);
+          // Replies carry the request id so the phone can match them; later errors do not.
           if (data.type === 'PLAY' && data.url) {
             if (data.debug) stats.style.display = 'block';
             play(data.url, report);
-            report({ type: 'PLAYING' });
+            report({ type: 'PLAYING', requestId: data.requestId });
           } else if (data.type === 'STATS') {
-            report({ type: 'STATS', ...metrics });
+            report({ type: 'STATS', requestId: data.requestId, ...metrics });
           }
         });
         const options = new cast.framework.CastReceiverOptions();
