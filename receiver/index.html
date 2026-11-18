@@ -477,7 +477,8 @@
         // HLS item arrives. Shaka costs about 13% more time to open the page (0.25 s on the TV
         // emulator), which beats switching receivers for every converted video (up to 15 s on
         // slow TVs). The older MPL is never needed.
-        options.skipPlayersLoad = true; // A/B MEASUREMENT ONLY
+        options.skipMplLoad = true;
+        options.useShakaForHls = true;
         options.customNamespaces = { [NAMESPACE]: cast.framework.system.MessageType.JSON };
         context.start(options);
       }
