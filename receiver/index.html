@@ -54,8 +54,9 @@
     <script src="https://www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js"></script>
   </head>
   <body>
-    <video id="video" autoplay muted playsinline></video>
+    <!-- The framework plays on the first video element, whatever setMediaElement says. -->
     <video id="media" playsinline></video>
+    <video id="video" autoplay muted playsinline></video>
     <img id="photo" alt="" />
     <div id="bar">
       <div id="title"></div>
