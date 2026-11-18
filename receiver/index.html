@@ -264,6 +264,24 @@
             report({ type: 'STATE', requestId: data.requestId, visible: document.visibilityState === 'visible' });
           }
         });
+        // Safety net: with no phone connected, close so the TV goes back to what it showed. This
+        // covers every way a phone can leave without stopping the receiver: a crash, lost Wi-Fi,
+        // or giving up while the TV was still opening this page.
+        const ORPHAN_GRACE_MS = 10000;
+        let orphanTimer = null;
+        const checkSenders = () => {
+          clearTimeout(orphanTimer);
+          orphanTimer = null;
+          if (context.getSenders().length > 0) return;
+          orphanTimer = setTimeout(() => {
+            if (context.getSenders().length === 0) context.stop();
+          }, ORPHAN_GRACE_MS);
+        };
+        const system = cast.framework.system.EventType;
+        context.addEventListener(system.SENDER_CONNECTED, checkSenders);
+        context.addEventListener(system.SENDER_DISCONNECTED, checkSenders);
+        // The phone connects right after the launch; give it time before the first check.
+        context.addEventListener(system.READY, () => setTimeout(checkSenders, 15000));
         const options = new cast.framework.CastReceiverOptions();
         options.disableIdleTimeout = true;
         options.skipPlayersLoad = true;
