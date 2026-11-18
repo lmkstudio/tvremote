@@ -138,11 +138,13 @@
 
       let session = 0;
       let abort = null;
+      let playing = null; // the URLs of the stream being played, until it fails
 
       // Plays the phone's video stream and, if given, its audio stream. Each gets its own
       // SourceBuffer; the media element keeps them in step by timestamp.
       async function play(url, audioUrl, report) {
         const current = ++session;
+        playing = url + ' ' + (audioUrl || '');
         if (abort) abort.abort();
         abort = new AbortController();
         show('connecting');
@@ -172,6 +174,7 @@
           await Promise.race(buffers.map((buffer, i) => feed(buffer, responses[i].body.getReader(), current)));
         } catch (error) {
           if (current !== session || error.name === 'AbortError') return;
+          playing = null;
           metrics.error = String(error.message || error);
           show(error.ended ? 'stopped' : 'error');
           report({ type: 'ERROR', message: metrics.error });
@@ -254,7 +257,8 @@
           if (data.type === 'PLAY' && data.url) {
             if (data.debug) stats.style.display = 'block';
             if (data.lang) setLanguage(data.lang);
-            play(data.url, data.audio, report);
+            // The phone resends PLAY until it hears back; a repeat must not restart the stream.
+            if (playing !== data.url + ' ' + (data.audio || '')) play(data.url, data.audio, report);
             report({ type: 'PLAYING', requestId: data.requestId });
           } else if (data.type === 'STATS') {
             report({ type: 'STATS', requestId: data.requestId, ...metrics });
