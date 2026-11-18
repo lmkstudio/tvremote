@@ -56,7 +56,7 @@
   <body>
     <video id="video" autoplay muted playsinline></video>
     <video id="media" playsinline></video>
-    <canvas id="photo"></canvas>
+    <img id="photo" alt="" />
     <div id="bar">
       <div id="title"></div>
       <div class="timeline"><span id="elapsed"></span><div class="track"><div id="progress"></div></div><span id="duration"></span></div>
@@ -187,7 +187,7 @@
         if (mode === 'media' && next !== 'media') stopMedia();
         if (mode === 'photo' && next !== 'photo') {
           photo.classList.remove('shown');
-          photo.width = photo.height = 0; // frees the pixels
+          photo.removeAttribute('src');
         }
         video.style.display = next === 'mirror' ? 'block' : 'none';
         mediaElement.style.display = next === 'media' ? 'block' : 'none';
@@ -379,31 +379,19 @@
           if (mode === 'media' && event.severity !== cast.framework.events.ErrorSeverity.WARNING) show('mediaError');
         });
 
-        // Photos: shown once decoded, so the reply means the photo is on the TV. The phone sends
-        // up to 3840 px; the photo is scaled to the screen's pixels before it is drawn, so the
-        // GPU never holds more than a screenful. A full-size layer crashes some TVs' graphics.
+        // Photos: shown once decoded, so the reply means the photo is on the TV. The phone scales
+        // them to the screen first: a full-size photo layer crashes some TVs' graphics.
         let showing = 0;
         async function showPhoto(url, report, requestId) {
           const current = ++showing;
           enter('photo');
           photo.classList.remove('shown');
-          let full = null, scaled = null;
           try {
-            const response = await fetch(url, { cache: 'no-store' });
-            if (!response.ok) throw new Error('HTTP ' + response.status);
-            const blob = await response.blob();
-            full = await createImageBitmap(blob);
-            const width = Math.round(window.innerWidth * (window.devicePixelRatio || 1));
-            const height = Math.round(window.innerHeight * (window.devicePixelRatio || 1));
-            const fit = Math.min(1, width / full.width, height / full.height);
-            const w = Math.max(1, Math.round(full.width * fit)), h = Math.max(1, Math.round(full.height * fit));
-            full.close();
-            full = null;
-            scaled = await createImageBitmap(blob, { resizeWidth: w, resizeHeight: h, resizeQuality: 'high' });
+            const next = new Image();
+            next.src = url;
+            await next.decode();
             if (current !== showing || mode !== 'photo') return;
-            photo.width = width;
-            photo.height = height;
-            photo.getContext('2d').drawImage(scaled, Math.round((width - w) / 2), Math.round((height - h) / 2));
+            photo.src = url;
             photo.classList.add('shown');
             splash.classList.add('hidden');
             report({ type: 'SHOWN', requestId, visible: document.visibilityState === 'visible' });
@@ -411,9 +399,6 @@
             if (current !== showing) return;
             show('mediaError');
             report({ type: 'ERROR', requestId, message: 'The TV could not show this photo' });
-          } finally {
-            if (full) full.close();
-            if (scaled) scaled.close();
           }
         }
 
