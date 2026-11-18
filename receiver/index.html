@@ -1,0 +1,157 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="robots" content="noindex" />
+    <title>TV Remote Mirror</title>
+    <style>
+      html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+      video { width: 100%; height: 100%; object-fit: contain; }
+      #stats {
+        position: fixed; left: 24px; bottom: 24px; display: none; padding: 6px 10px;
+        color: #7f7; background: #000a; font: 16px/1.4 monospace; white-space: pre;
+      }
+      #message {
+        position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+        color: #ccc; font: 28px sans-serif;
+      }
+    </style>
+    <script src="https://www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js"></script>
+  </head>
+  <body>
+    <video id="video" autoplay muted playsinline></video>
+    <div id="message">Waiting for the phone…</div>
+    <div id="stats"></div>
+    <script>
+      'use strict';
+      // Low-latency screen mirroring receiver. The phone serves one endless fragmented MP4 body
+      // with a fragment per frame; it is fed to Media Source Extensions as it arrives, and the
+      // playhead is kept just behind the newest frame.
+      const NAMESPACE = 'urn:x-cast:com.lmk.tvremote.mirror';
+      const TARGET_LAG = 0.1;   // seconds of video kept ahead of the playhead
+      const CATCH_UP_LAG = 0.3; // above this, play slightly faster
+      const JUMP_LAG = 1.0;     // above this, jump straight to the newest frame
+      const KEEP_BEHIND = 5;    // seconds of played video kept in the buffer
+
+      const video = document.getElementById('video');
+      const stats = document.getElementById('stats');
+      const message = document.getElementById('message');
+      const params = new URLSearchParams(location.search);
+      if (params.has('debug')) stats.style.display = 'block';
+
+      const metrics = { lag: 0, jumps: 0, appended: 0, stalls: 0, error: null };
+      window.mirrorMetrics = metrics;
+
+      let session = 0;
+      let abort = null;
+
+      async function play(url, report) {
+        const current = ++session;
+        if (abort) abort.abort();
+        abort = new AbortController();
+        message.textContent = 'Connecting…';
+        message.style.display = 'flex';
+        try {
+          const response = await fetch(url, { signal: abort.signal, cache: 'no-store' });
+          if (!response.ok) throw new Error('HTTP ' + response.status);
+          const mime = response.headers.get('content-type');
+          if (!window.MediaSource || !MediaSource.isTypeSupported(mime)) {
+            throw new Error('Unsupported stream: ' + mime);
+          }
+          const source = new MediaSource();
+          video.src = URL.createObjectURL(source);
+          await new Promise((resolve) => source.addEventListener('sourceopen', resolve, { once: true }));
+          const buffer = source.addSourceBuffer(mime);
+          buffer.mode = 'segments';
+          const queue = [];
+          const pump = () => {
+            if (current !== session || buffer.updating || !queue.length) return;
+            const size = queue.reduce((sum, chunk) => sum + chunk.length, 0);
+            const data = new Uint8Array(size);
+            let offset = 0;
+            for (const chunk of queue) { data.set(chunk, offset); offset += chunk.length; }
+            queue.length = 0;
+            metrics.appended += size;
+            buffer.appendBuffer(data);
+          };
+          buffer.addEventListener('updateend', () => {
+            if (current !== session) return;
+            chase();
+            const ranges = buffer.buffered;
+            if (ranges.length && video.currentTime - ranges.start(0) > KEEP_BEHIND * 2) {
+              buffer.remove(0, video.currentTime - KEEP_BEHIND);
+              return; // the removal ends with another updateend, which resumes appending
+            }
+            pump();
+          });
+          const reader = response.body.getReader();
+          for (;;) {
+            const { done, value } = await reader.read();
+            if (done) throw new Error('The phone ended the stream');
+            if (current !== session) return;
+            queue.push(value);
+            pump();
+          }
+        } catch (error) {
+          if (current !== session || error.name === 'AbortError') return;
+          metrics.error = String(error.message || error);
+          message.textContent = metrics.error;
+          message.style.display = 'flex';
+          report({ type: 'ERROR', message: metrics.error });
+        }
+      }
+
+      // Keeps the playhead just behind the newest buffered frame.
+      function chase() {
+        const ranges = video.buffered;
+        if (!ranges.length) return;
+        const end = ranges.end(ranges.length - 1);
+        const start = ranges.start(ranges.length - 1);
+        const lag = end - video.currentTime;
+        metrics.lag = lag;
+        if (video.currentTime < start || lag > JUMP_LAG) {
+          video.currentTime = Math.max(start, end - TARGET_LAG);
+          metrics.jumps++;
+        } else {
+          video.playbackRate = lag > CATCH_UP_LAG ? 1.1 : 1.0;
+        }
+        if (video.paused) video.play().catch(() => {});
+        message.style.display = 'none';
+      }
+
+      video.addEventListener('waiting', () => metrics.stalls++);
+      setInterval(() => {
+        const quality = video.getVideoPlaybackQuality ? video.getVideoPlaybackQuality() : {};
+        metrics.dropped = quality.droppedVideoFrames || 0;
+        metrics.decoded = quality.totalVideoFrames || 0;
+        stats.textContent =
+          `lag ${(metrics.lag * 1000).toFixed(0)} ms  rate ${video.playbackRate}\n` +
+          `jumps ${metrics.jumps}  stalls ${metrics.stalls}  dropped ${metrics.dropped}/${metrics.decoded}\n` +
+          `received ${(metrics.appended / 1e6).toFixed(1)} MB`;
+      }, 500);
+
+      if (params.has('src')) {
+        // Plain browser: the stream URL comes from the page address, for testing without Cast.
+        play(params.get('src'), (status) => console.warn(JSON.stringify(status)));
+      } else {
+        const context = cast.framework.CastReceiverContext.getInstance();
+        context.addCustomMessageListener(NAMESPACE, (event) => {
+          const data = event.data || {};
+          const report = (status) => context.sendCustomMessage(NAMESPACE, event.senderId, status);
+          if (data.type === 'PLAY' && data.url) {
+            if (data.debug) stats.style.display = 'block';
+            play(data.url, report);
+            report({ type: 'PLAYING' });
+          } else if (data.type === 'STATS') {
+            report({ type: 'STATS', ...metrics });
+          }
+        });
+        const options = new cast.framework.CastReceiverOptions();
+        options.disableIdleTimeout = true;
+        options.skipPlayersLoad = true;
+        options.customNamespaces = { [NAMESPACE]: cast.framework.system.MessageType.JSON };
+        context.start(options);
+      }
+    </script>
+  </body>
+</html>
