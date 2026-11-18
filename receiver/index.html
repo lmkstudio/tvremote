@@ -436,7 +436,13 @@
           } else if (data.type === 'STATE') {
             // After Home on the TV this page keeps running in the background; the phone then
             // relaunches it instead of showing things on a hidden page.
-            report({ type: 'STATE', requestId: data.requestId, visible: document.visibilityState === 'visible', version: VERSION });
+            report({
+              type: 'STATE', requestId: data.requestId, visible: document.visibilityState === 'visible', version: VERSION,
+              // The page's size in device pixels: photos bigger than this gain nothing on this TV.
+              width: Math.round(window.innerWidth * (window.devicePixelRatio || 1)),
+              height: Math.round(window.innerHeight * (window.devicePixelRatio || 1)),
+              screen: { width: screen.width, height: screen.height, ratio: window.devicePixelRatio || 1 },
+            });
           }
         });
         // Safety net: with no phone connected, close so the TV goes back to what it showed. This
