@@ -80,8 +80,8 @@
       // Mirroring: the phone serves one endless fragmented MP4 body with a fragment per frame; it
       // is fed to Media Source Extensions as it arrives, and the playhead is kept just behind the
       // newest frame. Videos: standard Cast LOAD requests, played by the framework's player on
-      // #media, HLS (videos the phone converts) through Shaka Player. Photos: SHOW messages on the
-      // app's namespace.
+      // #media, HLS (videos the phone converts) through Shaka Player, loaded only when needed.
+      // Photos: SHOW messages on the app's namespace.
       //
       // Messages on NAMESPACE, each answered with its requestId:
       //   STATE {lang}         -> STATE {visible, version}   version 2 shows photos and videos,
@@ -89,6 +89,7 @@
       //   CHECK {types}        -> CHECK {ok}                 can Media Source play these types
       //   PLAY {url, audio, lang} -> PLAYING {visible}       mirror this stream
       //   SHOW {url, lang}     -> SHOWN {visible} | ERROR    show this photo, once it is decoded
+      //   PREPARE              (no reply)                   an HLS item is coming: load Shaka
       //   STATS                -> STATS {...}                mirror metrics
       // Sent unasked: HIDDEN (Home on the TV while showing something), ERROR {message} (the
       // mirror stream failed).
@@ -359,7 +360,24 @@
             // Nothing was loaded.
           }
         };
+        // Loads Shaka once, as the framework does at start without skipPlayersLoad (MPL, the older
+        // player, is never needed). The framework also installs Shaka's polyfills then; this
+        // listener does it as Shaka's script loads, in the capture phase, so before the
+        // framework's own load handler creates a player.
+        let playersLoading = false;
+        function loadPlayers() {
+          if (playersLoading) return;
+          playersLoading = true;
+          document.addEventListener('load', (event) => {
+            const src = (event.target && event.target.src) || '';
+            if (src.includes('shaka-player') && window.shaka) shaka.polyfill.installAll();
+          }, true);
+          context.loadPlayerLibrariesWithOptions(false, undefined, undefined, false, true);
+        }
+        const isHls = (type) => /mpegurl/i.test(type || '');
+
         playerManager.setMessageInterceptor(cast.framework.messages.MessageType.LOAD, (request) => {
+          if (request.media && isHls(request.media.contentType)) loadPlayers();
           enter('media');
           show('connecting');
           const metadata = (request.media && request.media.metadata) || {};
@@ -421,6 +439,8 @@
             report({ type: 'PLAYING', requestId: data.requestId, visible: document.visibilityState === 'visible' });
           } else if (data.type === 'SHOW' && data.url) {
             showPhoto(data.url, report, data.requestId);
+          } else if (data.type === 'PREPARE') {
+            loadPlayers();
           } else if (data.type === 'CHECK') {
             // Asked before the phone starts capturing: can this TV decode the stream at all?
             const types = Array.isArray(data.types) ? data.types : [];
@@ -473,11 +493,11 @@
         });
         const options = new cast.framework.CastReceiverOptions();
         options.disableIdleTimeout = true;
-        // HLS needs a player library, which the framework only loads at start, never when an
-        // HLS item arrives. Shaka costs about 13% more time to open the page (0.25 s on the TV
-        // emulator), which beats switching receivers for every converted video (up to 15 s on
-        // slow TVs). The older MPL is never needed.
-        options.skipMplLoad = true;
+        // HLS needs Shaka Player. Loading it at start costs every page open 2 s on a slow TV
+        // (Sony BRAVIA: 15.6 s to 17.8 s), so it loads when the phone says an HLS item is coming
+        // (PREPARE, sent as it starts converting a video) or when one arrives. The framework's
+        // Shaka player waits for the library, so a LOAD that comes first still plays.
+        options.skipPlayersLoad = true;
         options.useShakaForHls = true;
         options.customNamespaces = { [NAMESPACE]: cast.framework.system.MessageType.JSON };
         context.start(options);
