@@ -6,7 +6,22 @@
     <title>Remote TV</title>
     <style>
       html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
-      video { width: 100%; height: 100%; object-fit: contain; }
+      video, #photo { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+      #media, #photo { display: none; }
+      #photo { opacity: 0; transition: opacity 0.3s; }
+      #photo.shown { opacity: 1; }
+      /* Shown over a video while it is paused, and briefly when it starts or seeks. */
+      #bar {
+        position: fixed; left: 0; right: 0; bottom: 0; padding: 120px 64px 48px;
+        background: linear-gradient(transparent, #000c); color: #fff;
+        font-family: Roboto, 'Noto Sans', sans-serif; opacity: 0; transition: opacity 0.3s;
+      }
+      #bar.shown { opacity: 1; }
+      #title { font-size: 30px; font-weight: 500; margin-bottom: 20px; white-space: nowrap;
+        overflow: hidden; text-overflow: ellipsis; }
+      .timeline { display: flex; align-items: center; gap: 24px; font-size: 22px; color: #ddd; }
+      .track { flex: 1; height: 6px; border-radius: 3px; background: #ffffff40; overflow: hidden; }
+      #progress { height: 100%; width: 0; background: #4d8dff; }
       #stats {
         position: fixed; left: 24px; bottom: 24px; display: none; padding: 6px 10px;
         color: #7f7; background: #000a; font: 16px/1.4 monospace; white-space: pre;
@@ -40,6 +55,12 @@
   </head>
   <body>
     <video id="video" autoplay muted playsinline></video>
+    <video id="media" playsinline></video>
+    <img id="photo" alt="" />
+    <div id="bar">
+      <div id="title"></div>
+      <div class="timeline"><span id="elapsed"></span><div class="track"><div id="progress"></div></div><span id="duration"></span></div>
+    </div>
     <div id="splash">
       <div class="card">
         <img class="icon" src="icon.png" alt="" />
@@ -50,9 +71,25 @@
     <div id="stats"></div>
     <script>
       'use strict';
-      // Low-latency screen mirroring receiver. The phone serves one endless fragmented MP4 body
-      // with a fragment per frame; it is fed to Media Source Extensions as it arrives, and the
-      // playhead is kept just behind the newest frame.
+      // The app's receiver: shows the phone's photos, plays its videos, and mirrors its screen.
+      // One receiver for all three, so switching between them never relaunches it, which takes
+      // up to 15 s on slow TVs.
+      //
+      // Mirroring: the phone serves one endless fragmented MP4 body with a fragment per frame; it
+      // is fed to Media Source Extensions as it arrives, and the playhead is kept just behind the
+      // newest frame. Videos: standard Cast LOAD requests, played by the framework's player on
+      // #media. Photos: SHOW messages on the app's namespace. The phone sends videos that need a
+      // player library (HLS) to the Default Media Receiver, so this page skips loading them.
+      //
+      // Messages on NAMESPACE, each answered with its requestId:
+      //   STATE {lang}         -> STATE {visible, version}   (version 2 shows photos and videos)
+      //   CHECK {types}        -> CHECK {ok}                 can Media Source play these types
+      //   PLAY {url, audio, lang} -> PLAYING {visible}       mirror this stream
+      //   SHOW {url, lang}     -> SHOWN {visible} | ERROR    show this photo, once it is decoded
+      //   STATS                -> STATS {...}                mirror metrics
+      // Sent unasked: HIDDEN (Home on the TV while showing something), ERROR {message} (the
+      // mirror stream failed).
+      const VERSION = 2;
       const NAMESPACE = 'urn:x-cast:com.lmk.tvremote.mirror';
       const TARGET_LAG = 0.1;   // seconds of video kept ahead of the playhead
       // Above this, play slightly faster. With audio the buffer settles near 0.3 s, so a lower
@@ -62,6 +99,9 @@
       const KEEP_BEHIND = 5;    // seconds of played video kept in the buffer
 
       const video = document.getElementById('video');
+      const mediaElement = document.getElementById('media');
+      const photo = document.getElementById('photo');
+      const bar = document.getElementById('bar');
       const stats = document.getElementById('stats');
       const splash = document.getElementById('splash');
       const params = new URLSearchParams(location.search);
@@ -69,37 +109,37 @@
 
       // The app's languages. The TV's language applies until the phone sends the app's own.
       const STRINGS = {
-        "en": {"connecting": "Connecting to your phone…", "stopped": "Your phone stopped sharing its screen.", "error": "Can't show your phone's screen. Make sure your phone and TV are on the same Wi-Fi, then try again."},
-        "ar": {"connecting": "جارٍ الاتصال بهاتفك…", "stopped": "توقف هاتفك عن مشاركة الشاشة.", "error": "تعذّر عرض شاشة هاتفك. تأكد من اتصال الهاتف والتلفزيون بشبكة Wi-Fi نفسها، ثم حاول مرة أخرى."},
-        "cs": {"connecting": "Připojování k telefonu…", "stopped": "Telefon přestal sdílet obrazovku.", "error": "Obrazovku telefonu nelze zobrazit. Zkontrolujte, že jsou telefon i televizor ve stejné síti Wi-Fi, a zkuste to znovu."},
-        "da": {"connecting": "Opretter forbindelse til telefonen…", "stopped": "Telefonen er stoppet med at dele skærmen.", "error": "Telefonens skærm kan ikke vises. Sørg for, at telefonen og tv'et er på samme Wi-Fi, og prøv igen."},
-        "de": {"connecting": "Verbindung mit deinem Telefon wird hergestellt…", "stopped": "Dein Telefon teilt den Bildschirm nicht mehr.", "error": "Der Bildschirm deines Telefons kann nicht angezeigt werden. Prüfe, ob Telefon und Fernseher im selben WLAN sind, und versuch es noch einmal."},
-        "el": {"connecting": "Σύνδεση με το τηλέφωνό σας…", "stopped": "Το τηλέφωνό σας σταμάτησε την κοινή χρήση της οθόνης.", "error": "Δεν είναι δυνατή η προβολή της οθόνης του τηλεφώνου σας. Βεβαιωθείτε ότι το τηλέφωνο και η τηλεόραση είναι στο ίδιο δίκτυο Wi-Fi και δοκιμάστε ξανά."},
-        "es": {"connecting": "Conectando con tu teléfono…", "stopped": "Tu teléfono dejó de compartir la pantalla.", "error": "No se puede mostrar la pantalla del teléfono. Comprueba que el teléfono y el televisor estén en la misma red Wi-Fi y vuelve a intentarlo."},
-        "fi": {"connecting": "Yhdistetään puhelimeen…", "stopped": "Puhelin lopetti näytön jakamisen.", "error": "Puhelimen näyttöä ei voi näyttää. Varmista, että puhelin ja televisio ovat samassa Wi-Fi-verkossa, ja yritä uudelleen."},
-        "fr": {"connecting": "Connexion à votre téléphone…", "stopped": "Votre téléphone a arrêté de partager son écran.", "error": "Impossible d'afficher l'écran de votre téléphone. Vérifiez que le téléphone et le téléviseur sont sur le même réseau Wi-Fi, puis réessayez."},
-        "he": {"connecting": "מתחבר לטלפון…", "stopped": "הטלפון הפסיק לשתף את המסך.", "error": "אי אפשר להציג את מסך הטלפון. צריך לוודא שהטלפון והטלוויזיה מחוברים לאותה רשת Wi-Fi ולנסות שוב."},
-        "hi": {"connecting": "आपके फ़ोन से कनेक्ट हो रहा है…", "stopped": "आपके फ़ोन ने स्क्रीन शेयर करना बंद कर दिया।", "error": "आपके फ़ोन की स्क्रीन नहीं दिखाई जा सकी। पक्का करें कि फ़ोन और TV एक ही Wi-Fi पर हैं, फिर दोबारा कोशिश करें।"},
-        "hu": {"connecting": "Csatlakozás a telefonhoz…", "stopped": "A telefon leállította a képernyő megosztását.", "error": "A telefon képernyője nem jeleníthető meg. Ellenőrizze, hogy a telefon és a tévé ugyanazon a Wi-Fi-hálózaton van-e, majd próbálja újra."},
-        "id": {"connecting": "Menghubungkan ke ponsel Anda…", "stopped": "Ponsel Anda berhenti membagikan layar.", "error": "Layar ponsel tidak dapat ditampilkan. Pastikan ponsel dan TV terhubung ke Wi-Fi yang sama, lalu coba lagi."},
-        "it": {"connecting": "Connessione al telefono…", "stopped": "Il telefono ha smesso di condividere lo schermo.", "error": "Impossibile mostrare lo schermo del telefono. Assicurati che telefono e TV siano sulla stessa rete Wi-Fi, poi riprova."},
-        "ja": {"connecting": "スマートフォンに接続しています…", "stopped": "スマートフォンの画面共有が終了しました。", "error": "スマートフォンの画面を表示できません。スマートフォンとテレビが同じWi-Fiに接続されていることを確認して、もう一度お試しください。"},
-        "ko": {"connecting": "휴대폰에 연결하는 중…", "stopped": "휴대폰에서 화면 공유를 중지했습니다.", "error": "휴대폰 화면을 표시할 수 없습니다. 휴대폰과 TV가 같은 Wi-Fi에 연결되어 있는지 확인한 후 다시 시도하세요."},
-        "ms": {"connecting": "Menyambung ke telefon anda…", "stopped": "Telefon anda berhenti berkongsi skrin.", "error": "Skrin telefon tidak dapat dipaparkan. Pastikan telefon dan TV berada pada Wi-Fi yang sama, kemudian cuba lagi."},
-        "nb": {"connecting": "Kobler til telefonen…", "stopped": "Telefonen sluttet å dele skjermen.", "error": "Kan ikke vise telefonskjermen. Sørg for at telefonen og TV-en er på samme Wi-Fi, og prøv igjen."},
-        "nl": {"connecting": "Verbinden met je telefoon…", "stopped": "Je telefoon deelt het scherm niet meer.", "error": "Het scherm van je telefoon kan niet worden weergegeven. Controleer of je telefoon en tv met hetzelfde wifinetwerk zijn verbonden en probeer het opnieuw."},
-        "pl": {"connecting": "Łączenie z telefonem…", "stopped": "Telefon przestał udostępniać ekran.", "error": "Nie można wyświetlić ekranu telefonu. Sprawdź, czy telefon i telewizor są w tej samej sieci Wi-Fi, i spróbuj ponownie."},
-        "pt-BR": {"connecting": "Conectando ao seu celular…", "stopped": "Seu celular parou de compartilhar a tela.", "error": "Não foi possível mostrar a tela do celular. Verifique se o celular e a TV estão na mesma rede Wi-Fi e tente de novo."},
-        "pt-PT": {"connecting": "A ligar ao telemóvel…", "stopped": "O telemóvel deixou de partilhar o ecrã.", "error": "Não é possível mostrar o ecrã do telemóvel. Confirme que o telemóvel e o televisor estão na mesma rede Wi-Fi e tente novamente."},
-        "ro": {"connecting": "Se conectează la telefon…", "stopped": "Telefonul a oprit partajarea ecranului.", "error": "Ecranul telefonului nu poate fi afișat. Verifică dacă telefonul și televizorul sunt în aceeași rețea Wi-Fi, apoi încearcă din nou."},
-        "ru": {"connecting": "Подключение к телефону…", "stopped": "Телефон прекратил трансляцию экрана.", "error": "Не удается показать экран телефона. Убедитесь, что телефон и телевизор подключены к одной сети Wi-Fi, и повторите попытку."},
-        "sv": {"connecting": "Ansluter till telefonen…", "stopped": "Telefonen slutade dela skärmen.", "error": "Det går inte att visa telefonens skärm. Kontrollera att telefonen och tv:n är på samma wifi och försök igen."},
-        "th": {"connecting": "กำลังเชื่อมต่อกับโทรศัพท์…", "stopped": "โทรศัพท์หยุดแชร์หน้าจอแล้ว", "error": "ไม่สามารถแสดงหน้าจอโทรศัพท์ได้ ตรวจสอบว่าโทรศัพท์และทีวีเชื่อมต่อ Wi-Fi เดียวกัน แล้วลองอีกครั้ง"},
-        "tr": {"connecting": "Telefonunuza bağlanılıyor…", "stopped": "Telefonunuz ekran paylaşımını durdurdu.", "error": "Telefonunuzun ekranı gösterilemiyor. Telefonun ve televizyonun aynı Wi-Fi ağında olduğundan emin olun, ardından tekrar deneyin."},
-        "uk": {"connecting": "Підключення до телефона…", "stopped": "Телефон припинив трансляцію екрана.", "error": "Не вдається показати екран телефона. Переконайтеся, що телефон і телевізор підключено до однієї мережі Wi-Fi, і спробуйте ще раз."},
-        "vi": {"connecting": "Đang kết nối với điện thoại…", "stopped": "Điện thoại đã dừng chia sẻ màn hình.", "error": "Không hiển thị được màn hình điện thoại. Hãy kiểm tra điện thoại và TV dùng chung một mạng Wi-Fi rồi thử lại."},
-        "zh-Hans": {"connecting": "正在连接手机…", "stopped": "手机已停止共享屏幕。", "error": "无法显示手机屏幕。请确认手机和电视连接到同一 Wi-Fi，然后重试。"},
-        "zh-Hant": {"connecting": "正在連線手機…", "stopped": "手機已停止分享螢幕。", "error": "無法顯示手機螢幕。請確認手機和電視連線至同一個 Wi-Fi，然後再試一次。"}
+        "en": {"connecting": "Connecting to your phone…", "stopped": "Your phone stopped sharing its screen.", "error": "Can't show your phone's screen. Make sure your phone and TV are on the same Wi-Fi, then try again.", "mediaError": "Can't play this on the TV. Try again from your phone."},
+        "ar": {"connecting": "جارٍ الاتصال بهاتفك…", "stopped": "توقف هاتفك عن مشاركة الشاشة.", "error": "تعذّر عرض شاشة هاتفك. تأكد من اتصال الهاتف والتلفزيون بشبكة Wi-Fi نفسها، ثم حاول مرة أخرى.", "mediaError": "تعذّر تشغيل هذا المحتوى على التلفزيون. حاول مرة أخرى من هاتفك."},
+        "cs": {"connecting": "Připojování k telefonu…", "stopped": "Telefon přestal sdílet obrazovku.", "error": "Obrazovku telefonu nelze zobrazit. Zkontrolujte, že jsou telefon i televizor ve stejné síti Wi-Fi, a zkuste to znovu.", "mediaError": "Tento obsah nelze na televizoru přehrát. Zkuste to znovu z telefonu."},
+        "da": {"connecting": "Opretter forbindelse til telefonen…", "stopped": "Telefonen er stoppet med at dele skærmen.", "error": "Telefonens skærm kan ikke vises. Sørg for, at telefonen og tv'et er på samme Wi-Fi, og prøv igen.", "mediaError": "Det kan ikke afspilles på tv'et. Prøv igen fra telefonen."},
+        "de": {"connecting": "Verbindung mit deinem Telefon wird hergestellt…", "stopped": "Dein Telefon teilt den Bildschirm nicht mehr.", "error": "Der Bildschirm deines Telefons kann nicht angezeigt werden. Prüfe, ob Telefon und Fernseher im selben WLAN sind, und versuch es noch einmal.", "mediaError": "Das kann auf dem Fernseher nicht wiedergegeben werden. Versuch es noch einmal über dein Telefon."},
+        "el": {"connecting": "Σύνδεση με το τηλέφωνό σας…", "stopped": "Το τηλέφωνό σας σταμάτησε την κοινή χρήση της οθόνης.", "error": "Δεν είναι δυνατή η προβολή της οθόνης του τηλεφώνου σας. Βεβαιωθείτε ότι το τηλέφωνο και η τηλεόραση είναι στο ίδιο δίκτυο Wi-Fi και δοκιμάστε ξανά.", "mediaError": "Δεν είναι δυνατή η αναπαραγωγή στην τηλεόραση. Δοκιμάστε ξανά από το τηλέφωνό σας."},
+        "es": {"connecting": "Conectando con tu teléfono…", "stopped": "Tu teléfono dejó de compartir la pantalla.", "error": "No se puede mostrar la pantalla del teléfono. Comprueba que el teléfono y el televisor estén en la misma red Wi-Fi y vuelve a intentarlo.", "mediaError": "No se puede reproducir en el televisor. Vuelve a intentarlo desde tu teléfono."},
+        "fi": {"connecting": "Yhdistetään puhelimeen…", "stopped": "Puhelin lopetti näytön jakamisen.", "error": "Puhelimen näyttöä ei voi näyttää. Varmista, että puhelin ja televisio ovat samassa Wi-Fi-verkossa, ja yritä uudelleen.", "mediaError": "Tätä ei voi toistaa televisiossa. Yritä uudelleen puhelimesta."},
+        "fr": {"connecting": "Connexion à votre téléphone…", "stopped": "Votre téléphone a arrêté de partager son écran.", "error": "Impossible d'afficher l'écran de votre téléphone. Vérifiez que le téléphone et le téléviseur sont sur le même réseau Wi-Fi, puis réessayez.", "mediaError": "Impossible de lire ce contenu sur le téléviseur. Réessayez depuis votre téléphone."},
+        "he": {"connecting": "מתחבר לטלפון…", "stopped": "הטלפון הפסיק לשתף את המסך.", "error": "אי אפשר להציג את מסך הטלפון. צריך לוודא שהטלפון והטלוויזיה מחוברים לאותה רשת Wi-Fi ולנסות שוב.", "mediaError": "אי אפשר להפעיל את התוכן בטלוויזיה. צריך לנסות שוב מהטלפון."},
+        "hi": {"connecting": "आपके फ़ोन से कनेक्ट हो रहा है…", "stopped": "आपके फ़ोन ने स्क्रीन शेयर करना बंद कर दिया।", "error": "आपके फ़ोन की स्क्रीन नहीं दिखाई जा सकी। पक्का करें कि फ़ोन और TV एक ही Wi-Fi पर हैं, फिर दोबारा कोशिश करें।", "mediaError": "इसे TV पर नहीं चलाया जा सका। अपने फ़ोन से दोबारा कोशिश करें।"},
+        "hu": {"connecting": "Csatlakozás a telefonhoz…", "stopped": "A telefon leállította a képernyő megosztását.", "error": "A telefon képernyője nem jeleníthető meg. Ellenőrizze, hogy a telefon és a tévé ugyanazon a Wi-Fi-hálózaton van-e, majd próbálja újra.", "mediaError": "Ez nem játszható le a tévén. Próbálja újra a telefonról."},
+        "id": {"connecting": "Menghubungkan ke ponsel Anda…", "stopped": "Ponsel Anda berhenti membagikan layar.", "error": "Layar ponsel tidak dapat ditampilkan. Pastikan ponsel dan TV terhubung ke Wi-Fi yang sama, lalu coba lagi.", "mediaError": "Konten ini tidak dapat diputar di TV. Coba lagi dari ponsel Anda."},
+        "it": {"connecting": "Connessione al telefono…", "stopped": "Il telefono ha smesso di condividere lo schermo.", "error": "Impossibile mostrare lo schermo del telefono. Assicurati che telefono e TV siano sulla stessa rete Wi-Fi, poi riprova.", "mediaError": "Impossibile riprodurre questo contenuto sulla TV. Riprova dal telefono."},
+        "ja": {"connecting": "スマートフォンに接続しています…", "stopped": "スマートフォンの画面共有が終了しました。", "error": "スマートフォンの画面を表示できません。スマートフォンとテレビが同じWi-Fiに接続されていることを確認して、もう一度お試しください。", "mediaError": "テレビで再生できません。スマートフォンからもう一度お試しください。"},
+        "ko": {"connecting": "휴대폰에 연결하는 중…", "stopped": "휴대폰에서 화면 공유를 중지했습니다.", "error": "휴대폰 화면을 표시할 수 없습니다. 휴대폰과 TV가 같은 Wi-Fi에 연결되어 있는지 확인한 후 다시 시도하세요.", "mediaError": "TV에서 재생할 수 없습니다. 휴대폰에서 다시 시도하세요."},
+        "ms": {"connecting": "Menyambung ke telefon anda…", "stopped": "Telefon anda berhenti berkongsi skrin.", "error": "Skrin telefon tidak dapat dipaparkan. Pastikan telefon dan TV berada pada Wi-Fi yang sama, kemudian cuba lagi.", "mediaError": "Kandungan ini tidak dapat dimainkan pada TV. Cuba lagi daripada telefon anda."},
+        "nb": {"connecting": "Kobler til telefonen…", "stopped": "Telefonen sluttet å dele skjermen.", "error": "Kan ikke vise telefonskjermen. Sørg for at telefonen og TV-en er på samme Wi-Fi, og prøv igjen.", "mediaError": "Dette kan ikke spilles av på TV-en. Prøv igjen fra telefonen."},
+        "nl": {"connecting": "Verbinden met je telefoon…", "stopped": "Je telefoon deelt het scherm niet meer.", "error": "Het scherm van je telefoon kan niet worden weergegeven. Controleer of je telefoon en tv met hetzelfde wifinetwerk zijn verbonden en probeer het opnieuw.", "mediaError": "Dit kan niet worden afgespeeld op de tv. Probeer het opnieuw vanaf je telefoon."},
+        "pl": {"connecting": "Łączenie z telefonem…", "stopped": "Telefon przestał udostępniać ekran.", "error": "Nie można wyświetlić ekranu telefonu. Sprawdź, czy telefon i telewizor są w tej samej sieci Wi-Fi, i spróbuj ponownie.", "mediaError": "Nie można tego odtworzyć na telewizorze. Spróbuj ponownie z telefonu."},
+        "pt-BR": {"connecting": "Conectando ao seu celular…", "stopped": "Seu celular parou de compartilhar a tela.", "error": "Não foi possível mostrar a tela do celular. Verifique se o celular e a TV estão na mesma rede Wi-Fi e tente de novo.", "mediaError": "Não foi possível reproduzir isso na TV. Tente de novo pelo celular."},
+        "pt-PT": {"connecting": "A ligar ao telemóvel…", "stopped": "O telemóvel deixou de partilhar o ecrã.", "error": "Não é possível mostrar o ecrã do telemóvel. Confirme que o telemóvel e o televisor estão na mesma rede Wi-Fi e tente novamente.", "mediaError": "Não é possível reproduzir isto no televisor. Tente novamente a partir do telemóvel."},
+        "ro": {"connecting": "Se conectează la telefon…", "stopped": "Telefonul a oprit partajarea ecranului.", "error": "Ecranul telefonului nu poate fi afișat. Verifică dacă telefonul și televizorul sunt în aceeași rețea Wi-Fi, apoi încearcă din nou.", "mediaError": "Conținutul nu poate fi redat pe televizor. Încearcă din nou de pe telefon."},
+        "ru": {"connecting": "Подключение к телефону…", "stopped": "Телефон прекратил трансляцию экрана.", "error": "Не удается показать экран телефона. Убедитесь, что телефон и телевизор подключены к одной сети Wi-Fi, и повторите попытку.", "mediaError": "Не удается воспроизвести это на телевизоре. Повторите попытку с телефона."},
+        "sv": {"connecting": "Ansluter till telefonen…", "stopped": "Telefonen slutade dela skärmen.", "error": "Det går inte att visa telefonens skärm. Kontrollera att telefonen och tv:n är på samma wifi och försök igen.", "mediaError": "Det går inte att spela upp på tv:n. Försök igen från telefonen."},
+        "th": {"connecting": "กำลังเชื่อมต่อกับโทรศัพท์…", "stopped": "โทรศัพท์หยุดแชร์หน้าจอแล้ว", "error": "ไม่สามารถแสดงหน้าจอโทรศัพท์ได้ ตรวจสอบว่าโทรศัพท์และทีวีเชื่อมต่อ Wi-Fi เดียวกัน แล้วลองอีกครั้ง", "mediaError": "ไม่สามารถเล่นบนทีวีได้ ลองอีกครั้งจากโทรศัพท์"},
+        "tr": {"connecting": "Telefonunuza bağlanılıyor…", "stopped": "Telefonunuz ekran paylaşımını durdurdu.", "error": "Telefonunuzun ekranı gösterilemiyor. Telefonun ve televizyonun aynı Wi-Fi ağında olduğundan emin olun, ardından tekrar deneyin.", "mediaError": "Bu içerik televizyonda oynatılamıyor. Telefonunuzdan tekrar deneyin."},
+        "uk": {"connecting": "Підключення до телефона…", "stopped": "Телефон припинив трансляцію екрана.", "error": "Не вдається показати екран телефона. Переконайтеся, що телефон і телевізор підключено до однієї мережі Wi-Fi, і спробуйте ще раз.", "mediaError": "Не вдається відтворити це на телевізорі. Спробуйте ще раз із телефона."},
+        "vi": {"connecting": "Đang kết nối với điện thoại…", "stopped": "Điện thoại đã dừng chia sẻ màn hình.", "error": "Không hiển thị được màn hình điện thoại. Hãy kiểm tra điện thoại và TV dùng chung một mạng Wi-Fi rồi thử lại.", "mediaError": "Không phát được nội dung này trên TV. Hãy thử lại từ điện thoại."},
+        "zh-Hans": {"connecting": "正在连接手机…", "stopped": "手机已停止共享屏幕。", "error": "无法显示手机屏幕。请确认手机和电视连接到同一 Wi-Fi，然后重试。", "mediaError": "无法在电视上播放。请在手机上重试。"},
+        "zh-Hant": {"connecting": "正在連線手機…", "stopped": "手機已停止分享螢幕。", "error": "無法顯示手機螢幕。請確認手機和電視連線至同一個 Wi-Fi，然後再試一次。", "mediaError": "無法在電視上播放。請在手機上再試一次。"}
       };
       let strings = STRINGS.en;
       let shown = 'connecting';
@@ -123,12 +163,12 @@
         document.getElementById('status').textContent = strings[shown];
       }
 
-      // Shows the splash with one of the strings: connecting, stopped or error.
+      // Shows the splash with one of the strings: connecting, stopped, error or mediaError.
       function show(state) {
         shown = state;
         document.getElementById('status').textContent = strings[state];
         splash.classList.toggle('idle', state !== 'connecting');
-        splash.classList.toggle('failed', state === 'error');
+        splash.classList.toggle('failed', state === 'error' || state === 'mediaError');
         splash.classList.remove('hidden');
       }
 
@@ -136,6 +176,24 @@
 
       const metrics = { lag: 0, jumps: 0, appended: 0, stalls: 0, error: null };
       window.mirrorMetrics = metrics;
+
+      // What the page shows: idle (the splash), mirror, photo or media.
+      let mode = 'idle';
+      // Ends the framework's playback; set once the framework starts (not in a plain browser).
+      let stopMedia = () => {};
+      // Switches to [next], ending whatever else was showing. The splash stays as it is.
+      function enter(next) {
+        if (mode === 'mirror' && next !== 'mirror') stopMirror();
+        if (mode === 'media' && next !== 'media') stopMedia();
+        if (mode === 'photo' && next !== 'photo') {
+          photo.classList.remove('shown');
+          photo.removeAttribute('src');
+        }
+        video.style.display = next === 'mirror' ? 'block' : 'none';
+        mediaElement.style.display = next === 'media' ? 'block' : 'none';
+        photo.style.display = next === 'photo' ? 'block' : 'none';
+        mode = next;
+      }
 
       let session = 0;
       let abort = null;
@@ -145,6 +203,7 @@
       // Plays the phone's video stream and, if given, its audio stream. Each gets its own
       // SourceBuffer; the media element keeps them in step by timestamp.
       async function play(url, audioUrl, report) {
+        enter('mirror');
         const current = ++session;
         playing = url + ' ' + (audioUrl || '');
         if (abort) abort.abort();
@@ -181,6 +240,16 @@
           show(error.ended ? 'stopped' : 'error');
           report({ type: 'ERROR', message: metrics.error });
         }
+      }
+
+      function stopMirror() {
+        session++;
+        if (abort) abort.abort();
+        abort = null;
+        playing = null;
+        viewer = null;
+        video.removeAttribute('src');
+        video.load();
       }
 
       // Appends a response body to a SourceBuffer as it arrives; rejects when the body ends.
@@ -252,19 +321,101 @@
         play(params.get('src'), params.get('audio'), (status) => console.warn(JSON.stringify(status)));
       } else {
         const context = cast.framework.CastReceiverContext.getInstance();
+        const playerManager = context.getPlayerManager();
+        const events = cast.framework.events.EventType;
+        playerManager.setMediaElement(mediaElement);
+
+        // Videos: the framework plays them; this page only switches to them and shows progress.
+        let barTimer = null;
+        const formatTime = (seconds) => {
+          if (!isFinite(seconds) || seconds < 0) return '';
+          const s = Math.floor(seconds % 60), m = Math.floor(seconds / 60) % 60, h = Math.floor(seconds / 3600);
+          return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(s).padStart(2, '0');
+        };
+        const updateBar = () => {
+          const duration = mediaElement.duration;
+          document.getElementById('elapsed').textContent = formatTime(mediaElement.currentTime);
+          document.getElementById('duration').textContent = formatTime(duration);
+          document.getElementById('progress').style.width =
+            isFinite(duration) && duration > 0 ? (100 * mediaElement.currentTime / duration) + '%' : '0';
+        };
+        // Shows the bar while paused, and for a few seconds after playing starts or a seek.
+        const showBar = (briefly) => {
+          clearTimeout(barTimer);
+          updateBar();
+          bar.classList.add('shown');
+          if (briefly) barTimer = setTimeout(() => bar.classList.remove('shown'), 3000);
+        };
+        stopMedia = () => {
+          clearTimeout(barTimer);
+          bar.classList.remove('shown');
+          try {
+            if (playerManager.getPlayerState() !== cast.framework.messages.PlayerState.IDLE) playerManager.stop();
+          } catch (error) {
+            // Nothing was loaded.
+          }
+        };
+        playerManager.setMessageInterceptor(cast.framework.messages.MessageType.LOAD, (request) => {
+          enter('media');
+          show('connecting');
+          const metadata = (request.media && request.media.metadata) || {};
+          document.getElementById('title').textContent = metadata.title || '';
+          return request;
+        });
+        mediaElement.addEventListener('playing', () => {
+          if (mode !== 'media') return;
+          splash.classList.add('hidden');
+          showBar(true);
+        });
+        mediaElement.addEventListener('pause', () => { if (mode === 'media') showBar(false); });
+        mediaElement.addEventListener('seeked', () => {
+          if (mode === 'media') showBar(!mediaElement.paused);
+        });
+        mediaElement.addEventListener('timeupdate', () => {
+          if (bar.classList.contains('shown')) updateBar();
+        });
+        playerManager.addEventListener(events.ERROR, (event) => {
+          // Only a failure of the item itself; the phone hears of it through the media status.
+          if (mode === 'media' && event.severity !== cast.framework.events.ErrorSeverity.WARNING) show('mediaError');
+        });
+
+        // Photos: shown once decoded, so the reply means the photo is on the TV.
+        let showing = 0;
+        async function showPhoto(url, report, requestId) {
+          const current = ++showing;
+          enter('photo');
+          photo.classList.remove('shown');
+          try {
+            const next = new Image();
+            next.src = url;
+            await next.decode();
+            if (current !== showing || mode !== 'photo') return;
+            photo.src = url;
+            photo.classList.add('shown');
+            splash.classList.add('hidden');
+            report({ type: 'SHOWN', requestId, visible: document.visibilityState === 'visible' });
+          } catch (error) {
+            if (current !== showing) return;
+            show('mediaError');
+            report({ type: 'ERROR', requestId, message: 'The TV could not show this photo' });
+          }
+        }
+
         context.addCustomMessageListener(NAMESPACE, (event) => {
           const data = event.data || {};
           const report = (status) => context.sendCustomMessage(NAMESPACE, event.senderId, status);
+          if (data.lang) setLanguage(data.lang);
           // Replies carry the request id so the phone can match them; later errors do not.
           if (data.type === 'PLAY' && data.url) {
             if (data.debug) stats.style.display = 'block';
-            if (data.lang) setLanguage(data.lang);
             // The phone resends PLAY until it hears back; a repeat must not restart the stream.
             if (playing !== data.url + ' ' + (data.audio || '')) play(data.url, data.audio, report);
             viewer = report;
             // A page hidden before it plays (Home pressed during the launch) gets no
             // visibilitychange later, so the reply says so.
             report({ type: 'PLAYING', requestId: data.requestId, visible: document.visibilityState === 'visible' });
+          } else if (data.type === 'SHOW' && data.url) {
+            showPhoto(data.url, report, data.requestId);
           } else if (data.type === 'CHECK') {
             // Asked before the phone starts capturing: can this TV decode the stream at all?
             const types = Array.isArray(data.types) ? data.types : [];
@@ -273,14 +424,15 @@
           } else if (data.type === 'STATS') {
             report({ type: 'STATS', requestId: data.requestId, ...metrics });
           } else if (data.type === 'STATE') {
-            // After Home on the TV the page keeps running in the background; the phone then
-            // relaunches it instead of streaming to a hidden page.
-            report({ type: 'STATE', requestId: data.requestId, visible: document.visibilityState === 'visible' });
+            // After Home on the TV this page keeps running in the background; the phone then
+            // relaunches it instead of showing things on a hidden page.
+            report({ type: 'STATE', requestId: data.requestId, visible: document.visibilityState === 'visible', version: VERSION });
           }
         });
         // Safety net: with no phone connected, close so the TV goes back to what it showed. This
         // covers every way a phone can leave without stopping the receiver: a crash, lost Wi-Fi,
-        // or giving up while the TV was still opening this page.
+        // or giving up while the TV was still opening this page. Everything shown comes from
+        // the phone, so nothing is lost.
         const ORPHAN_GRACE_MS = 10000;
         let orphanTimer = null;
         const checkSenders = () => {
@@ -296,13 +448,16 @@
         context.addEventListener(system.SENDER_DISCONNECTED, checkSenders);
         // The phone connects right after the launch; give it time before the first check.
         context.addEventListener(system.READY, () => setTimeout(checkSenders, 15000));
-        // After Home on the TV this page keeps running unseen; tell the phone, which stops
-        // capturing a screen nobody watches.
+        // After Home on the TV this page keeps running unseen; tell the phones, which stop
+        // rather than show things nobody sees. Undefined sends to every sender.
         document.addEventListener('visibilitychange', () => {
-          if (document.visibilityState === 'hidden' && playing && viewer) viewer({ type: 'HIDDEN' });
+          if (document.visibilityState === 'hidden' && mode !== 'idle') {
+            context.sendCustomMessage(NAMESPACE, undefined, { type: 'HIDDEN' });
+          }
         });
         const options = new cast.framework.CastReceiverOptions();
         options.disableIdleTimeout = true;
+        // Faster to open. HLS, which needs these, goes to the Default Media Receiver.
         options.skipPlayersLoad = true;
         options.customNamespaces = { [NAMESPACE]: cast.framework.system.MessageType.JSON };
         context.start(options);
