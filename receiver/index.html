@@ -110,7 +110,7 @@
         if (base === 'zh') {
           return parts.some((p) => ['hant', 'tw', 'hk', 'mo'].includes(p)) ? 'zh-Hant' : 'zh-Hans';
         }
-        if (base === 'pt') return parts.includes('pt') ? 'pt-PT' : 'pt-BR';
+        if (base === 'pt') return parts.slice(1).includes('pt') ? 'pt-PT' : 'pt-BR';
         return STRINGS[base] ? base : 'en';
       }
 
@@ -119,7 +119,8 @@
         strings = STRINGS[code];
         document.documentElement.lang = code;
         document.documentElement.dir = code === 'ar' || code === 'he' ? 'rtl' : 'ltr';
-        show(shown);
+        // Retranslates the current message without bringing the splash back over video.
+        document.getElementById('status').textContent = strings[shown];
       }
 
       // Shows the splash with one of the strings: connecting, stopped or error.
@@ -261,7 +262,14 @@
             // The phone resends PLAY until it hears back; a repeat must not restart the stream.
             if (playing !== data.url + ' ' + (data.audio || '')) play(data.url, data.audio, report);
             viewer = report;
-            report({ type: 'PLAYING', requestId: data.requestId });
+            // A page hidden before it plays (Home pressed during the launch) gets no
+            // visibilitychange later, so the reply says so.
+            report({ type: 'PLAYING', requestId: data.requestId, visible: document.visibilityState === 'visible' });
+          } else if (data.type === 'CHECK') {
+            // Asked before the phone starts capturing: can this TV decode the stream at all?
+            const types = Array.isArray(data.types) ? data.types : [];
+            const ok = !!window.MediaSource && types.every((type) => MediaSource.isTypeSupported(type));
+            report({ type: 'CHECK', requestId: data.requestId, ok });
           } else if (data.type === 'STATS') {
             report({ type: 'STATS', requestId: data.requestId, ...metrics });
           } else if (data.type === 'STATE') {
