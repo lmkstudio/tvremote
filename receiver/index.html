@@ -8,8 +8,9 @@
       html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
       video, #photo { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: contain; }
       #media, #photo { display: none; }
-      #photo { opacity: 0; transition: opacity 0.3s; }
-      #photo.shown { opacity: 1; }
+      /* As the Default Media Receiver shows photos: a CSS background the browser scales while it
+         draws, never a full-size image layer. */
+      #photo { background: #000 center / contain no-repeat; }
       /* Shown over a video while it is paused, and briefly when it starts or seeks. */
       #bar {
         position: fixed; left: 0; right: 0; bottom: 0; padding: 120px 64px 48px;
@@ -57,7 +58,7 @@
     <!-- The framework plays on the first video element, whatever setMediaElement says. -->
     <video id="media" playsinline></video>
     <video id="video" autoplay muted playsinline></video>
-    <img id="photo" alt="" />
+    <div id="photo"></div>
     <div id="bar">
       <div id="title"></div>
       <div class="timeline"><span id="elapsed"></span><div class="track"><div id="progress"></div></div><span id="duration"></span></div>
@@ -188,8 +189,7 @@
         if (mode === 'mirror' && next !== 'mirror') stopMirror();
         if (mode === 'media' && next !== 'media') stopMedia();
         if (mode === 'photo' && next !== 'photo') {
-          photo.classList.remove('shown');
-          photo.removeAttribute('src');
+          photo.style.backgroundImage = '';
         }
         video.style.display = next === 'mirror' ? 'block' : 'none';
         mediaElement.style.display = next === 'media' ? 'block' : 'none';
@@ -383,27 +383,27 @@
           if (mode === 'media' && event.severity !== cast.framework.events.ErrorSeverity.WARNING) show('mediaError');
         });
 
-        // Photos: shown once decoded, so the reply means the photo is on the TV. The phone scales
-        // them to the screen first: a full-size photo layer crashes some TVs' graphics.
+        // Photos: shown once loaded, so the reply means the photo is on the TV. Loaded with an
+        // Image and drawn as a CSS background, as the Default Media Receiver does: decode() or a
+        // full-size image layer makes the browser hold every pixel on the GPU, which crashed the
+        // TV emulator's graphics with a 3840 px photo.
         let showing = 0;
-        async function showPhoto(url, report, requestId) {
+        function showPhoto(url, report, requestId) {
           const current = ++showing;
           enter('photo');
-          photo.classList.remove('shown');
-          try {
-            const next = new Image();
-            next.src = url;
-            await next.decode();
+          const next = new Image();
+          next.onload = () => {
             if (current !== showing || mode !== 'photo') return;
-            photo.src = url;
-            photo.classList.add('shown');
+            photo.style.backgroundImage = 'url("' + url.replace(/["\\]/g, '\\$&') + '")';
             splash.classList.add('hidden');
             report({ type: 'SHOWN', requestId, visible: document.visibilityState === 'visible' });
-          } catch (error) {
+          };
+          next.onerror = () => {
             if (current !== showing) return;
             show('mediaError');
             report({ type: 'ERROR', requestId, message: 'The TV could not show this photo' });
-          }
+          };
+          next.src = url;
         }
 
         context.addCustomMessageListener(NAMESPACE, (event) => {
