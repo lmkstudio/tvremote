@@ -332,12 +332,14 @@
           const s = Math.floor(seconds % 60), m = Math.floor(seconds / 60) % 60, h = Math.floor(seconds / 3600);
           return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(s).padStart(2, '0');
         };
+        // Read from the framework, which may play on an element of its own.
         const updateBar = () => {
-          const duration = mediaElement.duration;
-          document.getElementById('elapsed').textContent = formatTime(mediaElement.currentTime);
+          const time = playerManager.getCurrentTimeSec();
+          const duration = playerManager.getDurationSec();
+          document.getElementById('elapsed').textContent = formatTime(time);
           document.getElementById('duration').textContent = formatTime(duration);
           document.getElementById('progress').style.width =
-            isFinite(duration) && duration > 0 ? (100 * mediaElement.currentTime / duration) + '%' : '0';
+            isFinite(duration) && duration > 0 ? (100 * time / duration) + '%' : '0';
         };
         // Shows the bar while paused, and for a few seconds after playing starts or a seek.
         const showBar = (briefly) => {
@@ -362,16 +364,16 @@
           document.getElementById('title').textContent = metadata.title || '';
           return request;
         });
-        mediaElement.addEventListener('playing', () => {
+        playerManager.addEventListener(events.PLAYING, () => {
           if (mode !== 'media') return;
           splash.classList.add('hidden');
           showBar(true);
         });
-        mediaElement.addEventListener('pause', () => { if (mode === 'media') showBar(false); });
-        mediaElement.addEventListener('seeked', () => {
-          if (mode === 'media') showBar(!mediaElement.paused);
+        playerManager.addEventListener(events.PAUSE, () => { if (mode === 'media') showBar(false); });
+        playerManager.addEventListener(events.SEEKED, () => {
+          if (mode === 'media') showBar(playerManager.getPlayerState() === cast.framework.messages.PlayerState.PLAYING);
         });
-        mediaElement.addEventListener('timeupdate', () => {
+        playerManager.addEventListener(events.TIME_UPDATE, () => {
           if (bar.classList.contains('shown')) updateBar();
         });
         playerManager.addEventListener(events.ERROR, (event) => {
@@ -423,7 +425,12 @@
             const ok = !!window.MediaSource && types.every((type) => MediaSource.isTypeSupported(type));
             report({ type: 'CHECK', requestId: data.requestId, ok });
           } else if (data.type === 'STATS') {
-            report({ type: 'STATS', requestId: data.requestId, ...metrics });
+            // Also what each video element is doing, for debugging the page on a TV.
+            const videos = [...document.querySelectorAll('video')].map((v) => ({
+              id: v.id, display: getComputedStyle(v).display, src: v.currentSrc.slice(0, 80),
+              paused: v.paused, time: v.currentTime, ready: v.readyState,
+            }));
+            report({ type: 'STATS', requestId: data.requestId, ...metrics, mode, videos });
           } else if (data.type === 'STATE') {
             // After Home on the TV this page keeps running in the background; the phone then
             // relaunches it instead of showing things on a hidden page.
