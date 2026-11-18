@@ -258,6 +258,10 @@
             report({ type: 'PLAYING', requestId: data.requestId });
           } else if (data.type === 'STATS') {
             report({ type: 'STATS', requestId: data.requestId, ...metrics });
+          } else if (data.type === 'STATE') {
+            // After Home on the TV the page keeps running in the background; the phone then
+            // relaunches it instead of streaming to a hidden page.
+            report({ type: 'STATE', requestId: data.requestId, visible: document.visibilityState === 'visible' });
           }
         });
         const options = new cast.framework.CastReceiverOptions();
