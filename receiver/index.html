@@ -139,6 +139,7 @@
       let session = 0;
       let abort = null;
       let playing = null; // the URLs of the stream being played, until it fails
+      let viewer = null; // reports to the phone that asked to play
 
       // Plays the phone's video stream and, if given, its audio stream. Each gets its own
       // SourceBuffer; the media element keeps them in step by timestamp.
@@ -259,6 +260,7 @@
             if (data.lang) setLanguage(data.lang);
             // The phone resends PLAY until it hears back; a repeat must not restart the stream.
             if (playing !== data.url + ' ' + (data.audio || '')) play(data.url, data.audio, report);
+            viewer = report;
             report({ type: 'PLAYING', requestId: data.requestId });
           } else if (data.type === 'STATS') {
             report({ type: 'STATS', requestId: data.requestId, ...metrics });
@@ -286,6 +288,11 @@
         context.addEventListener(system.SENDER_DISCONNECTED, checkSenders);
         // The phone connects right after the launch; give it time before the first check.
         context.addEventListener(system.READY, () => setTimeout(checkSenders, 15000));
+        // After Home on the TV this page keeps running unseen; tell the phone, which stops
+        // capturing a screen nobody watches.
+        document.addEventListener('visibilitychange', () => {
+          if (document.visibilityState === 'hidden' && playing && viewer) viewer({ type: 'HIDDEN' });
+        });
         const options = new cast.framework.CastReceiverOptions();
         options.disableIdleTimeout = true;
         options.skipPlayersLoad = true;
