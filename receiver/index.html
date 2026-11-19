@@ -292,14 +292,16 @@
           playing = null;
           metrics.error = String(error.message || error);
           report({ type: 'ERROR', message: metrics.error });
+          if (firstFrame === item) firstFrame = 0;
           if (!error.ended) {
-            show('error');
+            if (item === latest) show('error');
             return;
           }
           // The phone ends the stream when it stops mirroring, often to show something else
-          // next: say so only if nothing else comes.
+          // next: say so only if nothing else comes, also when the stream ended before its first
+          // frame (the spinner over the previous item would otherwise stay).
           setTimeout(() => {
-            if (item === latest && mode === 'mirror') show('stopped');
+            if (item === latest) show('stopped');
           }, 3000);
         }
       }
