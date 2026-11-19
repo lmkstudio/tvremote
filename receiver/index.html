@@ -177,11 +177,20 @@
       // Whether a photo, video or the mirror is on screen (the splash is not).
       let onScreen = false;
       const busy = document.getElementById('busy');
+      // The spinner over the item on screen waits this long: most items replace it sooner (a
+      // photo in 0.3 s on a slow TV), and a spinner flashing for an instant looks like a glitch.
+      const BUSY_DELAY_MS = 500;
+      let busyTimer = null;
+      function hideBusy() {
+        clearTimeout(busyTimer);
+        busyTimer = null;
+        busy.classList.remove('shown');
+      }
 
       // Shows the splash with one of the strings: connecting, stopped, error or mediaError.
       function show(state) {
         onScreen = false;
-        busy.classList.remove('shown');
+        hideBusy();
         shown = state;
         document.getElementById('status').textContent = strings[state];
         splash.classList.toggle('idle', state !== 'connecting');
@@ -195,16 +204,23 @@
       window.mirrorMetrics = metrics;
 
       // The next item is loading. What is on screen stays until it is ready, with a small spinner
-      // over it; only an empty screen gets the splash.
+      // over it if that takes a while; only an empty screen gets the splash.
       function loading() {
-        if (onScreen) busy.classList.add('shown');
-        else show('connecting');
+        if (!onScreen) {
+          show('connecting');
+          return;
+        }
+        if (busyTimer || busy.classList.contains('shown')) return;
+        busyTimer = setTimeout(() => {
+          busyTimer = null;
+          busy.classList.add('shown');
+        }, BUSY_DELAY_MS);
       }
 
       // The item that was loading is on screen.
       function ready() {
         onScreen = true;
-        busy.classList.remove('shown');
+        hideBusy();
         splash.classList.add('hidden');
       }
 
