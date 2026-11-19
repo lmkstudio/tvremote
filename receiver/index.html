@@ -431,6 +431,9 @@
         playerManager.setMessageInterceptor(cast.framework.messages.MessageType.LOAD, (request) => {
           if (request.media && isHls(request.media.contentType)) loadPlayers();
           mediaItem = ++latest;
+          // The previous video's progress does not belong to this one.
+          clearTimeout(barTimer);
+          bar.classList.remove('shown');
           // Under a photo or the mirror still on screen until the video plays.
           mediaElement.style.display = 'block';
           loading();
