@@ -51,6 +51,12 @@
       @keyframes spin { to { transform: rotate(360deg); } }
       #splash.idle .spinner { display: none; }
       #splash.failed .status { color: #ffb4a8; }
+      /* While the next item loads over the one on screen. */
+      #busy {
+        position: fixed; left: 50%; top: 50%; width: 56px; height: 56px; margin: -28px 0 0 -28px;
+        border-radius: 50%; background: #000a; display: none; align-items: center; justify-content: center;
+      }
+      #busy.shown { display: flex; }
     </style>
     <script src="https://www.gstatic.com/cast/sdk/libs/caf_receiver/v3/cast_receiver_framework.js"></script>
   </head>
@@ -70,6 +76,7 @@
         <div class="status"><span class="spinner"></span><span id="status"></span></div>
       </div>
     </div>
+    <div id="busy"><span class="spinner"></span></div>
     <div id="stats"></div>
     <script>
       'use strict';
@@ -167,8 +174,14 @@
         document.getElementById('status').textContent = strings[shown];
       }
 
+      // Whether a photo, video or the mirror is on screen (the splash is not).
+      let onScreen = false;
+      const busy = document.getElementById('busy');
+
       // Shows the splash with one of the strings: connecting, stopped, error or mediaError.
       function show(state) {
+        onScreen = false;
+        busy.classList.remove('shown');
         shown = state;
         document.getElementById('status').textContent = strings[state];
         splash.classList.toggle('idle', state !== 'connecting');
@@ -181,7 +194,26 @@
       const metrics = { lag: 0, jumps: 0, appended: 0, stalls: 0, error: null };
       window.mirrorMetrics = metrics;
 
-      // What the page shows: idle (the splash), mirror, photo or media.
+      // The next item is loading. What is on screen stays until it is ready, with a small spinner
+      // over it; only an empty screen gets the splash.
+      function loading() {
+        if (onScreen) busy.classList.add('shown');
+        else show('connecting');
+      }
+
+      // The item that was loading is on screen.
+      function ready() {
+        onScreen = true;
+        busy.classList.remove('shown');
+        splash.classList.add('hidden');
+      }
+
+      // Each new item (PLAY, SHOW or LOAD) takes a number; a slower earlier one that finishes
+      // later must not replace it.
+      let latest = 0;
+
+      // What the page shows: idle (the splash), mirror, photo or media. Each item enters its mode
+      // once it is ready to be seen, so the previous one stays on screen until then.
       let mode = 'idle';
       // Ends the framework's playback; set once the framework starts (not in a plain browser).
       let stopMedia = () => {};
@@ -206,12 +238,15 @@
       // Plays the phone's video stream and, if given, its audio stream. Each gets its own
       // SourceBuffer; the media element keeps them in step by timestamp.
       async function play(url, audioUrl, report) {
-        enter('mirror');
+        if (mode === 'mirror') stopMirror();
         const current = ++session;
+        const item = ++latest;
+        firstFrame = item;
         playing = url + ' ' + (audioUrl || '');
         if (abort) abort.abort();
         abort = new AbortController();
-        show('connecting');
+        video.style.display = 'block'; // under a photo still on screen, over a video
+        loading();
         try {
           const urls = audioUrl ? [url, audioUrl] : [url];
           const responses = await Promise.all(
@@ -240,8 +275,16 @@
           if (current !== session || error.name === 'AbortError') return;
           playing = null;
           metrics.error = String(error.message || error);
-          show(error.ended ? 'stopped' : 'error');
           report({ type: 'ERROR', message: metrics.error });
+          if (!error.ended) {
+            show('error');
+            return;
+          }
+          // The phone ends the stream when it stops mirroring, often to show something else
+          // next: say so only if nothing else comes.
+          setTimeout(() => {
+            if (item === latest && mode === 'mirror') show('stopped');
+          }, 3000);
         }
       }
 
@@ -302,8 +345,15 @@
           video.playbackRate = lag > CATCH_UP_LAG ? 1.1 : 1.0;
         }
         if (video.paused) video.play().catch(() => {});
-        splash.classList.add('hidden');
+        // The first frame replaces whatever was on screen.
+        if (firstFrame && firstFrame === latest) {
+          firstFrame = 0;
+          enter('mirror');
+          ready();
+        }
       }
+      // The mirror item still waiting for its first frame, if any.
+      let firstFrame = 0;
 
       video.addEventListener('waiting', () => metrics.stalls++);
       setInterval(() => {
@@ -376,17 +426,22 @@
         }
         const isHls = (type) => /mpegurl/i.test(type || '');
 
+        // The item number of the video loading or playing.
+        let mediaItem = 0;
         playerManager.setMessageInterceptor(cast.framework.messages.MessageType.LOAD, (request) => {
           if (request.media && isHls(request.media.contentType)) loadPlayers();
-          enter('media');
-          show('connecting');
+          mediaItem = ++latest;
+          // Under a photo or the mirror still on screen until the video plays.
+          mediaElement.style.display = 'block';
+          loading();
           const metadata = (request.media && request.media.metadata) || {};
           document.getElementById('title').textContent = metadata.title || '';
           return request;
         });
         playerManager.addEventListener(events.PLAYING, () => {
-          if (mode !== 'media') return;
-          splash.classList.add('hidden');
+          if (mediaItem !== latest) return;
+          enter('media');
+          ready();
           showBar(true);
         });
         playerManager.addEventListener(events.PAUSE, () => { if (mode === 'media') showBar(false); });
@@ -398,26 +453,30 @@
         });
         playerManager.addEventListener(events.ERROR, (event) => {
           // Only a failure of the item itself; the phone hears of it through the media status.
-          if (mode === 'media' && event.severity !== cast.framework.events.ErrorSeverity.WARNING) show('mediaError');
+          if (mediaItem === latest && event.severity !== cast.framework.events.ErrorSeverity.WARNING) {
+            enter('media');
+            show('mediaError');
+          }
         });
 
         // Photos: shown once loaded, so the reply means the photo is on the TV. Loaded with an
         // Image and drawn as a CSS background, as the Default Media Receiver does: decode() or a
         // full-size image layer makes the browser hold every pixel on the GPU, which crashed the
         // TV emulator's graphics with a 3840 px photo.
-        let showing = 0;
         function showPhoto(url, report, requestId) {
-          const current = ++showing;
-          enter('photo');
+          const item = ++latest;
+          loading();
           const next = new Image();
           next.onload = () => {
-            if (current !== showing || mode !== 'photo') return;
+            if (item !== latest) return;
+            enter('photo');
             photo.style.backgroundImage = 'url("' + url.replace(/["\\]/g, '\\$&') + '")';
-            splash.classList.add('hidden');
+            ready();
             report({ type: 'SHOWN', requestId, visible: document.visibilityState === 'visible' });
           };
           next.onerror = () => {
-            if (current !== showing) return;
+            if (item !== latest) return;
+            enter('photo');
             show('mediaError');
             report({ type: 'ERROR', requestId, message: 'The TV could not show this photo' });
           };
